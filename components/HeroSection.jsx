@@ -1,5 +1,5 @@
 "use client";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Globe, CheckCircle } from "lucide-react";
 
 const FEATURES = [
   "Website Analysis",
@@ -15,11 +15,13 @@ const PROVIDERS = [
     id: "anthropic",
     name: "Claude",
     sub: "Anthropic",
-    badge: "claude-opus-4-5",
-    color: "#D97706",
+    badge: "opus-4-5",
+    color: "#D97757", // Anthropic Burnt Orange/Coral
+    bgColor: "rgba(217, 119, 87, 0.04)",
+    borderColor: "rgba(217, 119, 87, 0.12)",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M13.827 3.52l5.96 16.038h-3.427l-1.23-3.488H9.43l-1.23 3.488H4.773L10.733 3.52h3.094zm-1.547 4.982l-1.822 5.17h3.644l-1.822-5.17z"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M18.82 19.8l-5.64-14.8c-.14-.37-.7-.37-.84 0L6.7 19.8c-.06.16.06.32.22.32h2.24c.1 0 .18-.06.22-.16l1.24-3.44h5.4l1.24 3.44c.04.1.12.16.22.16h2.24c.16 0 .28-.16.22-.32zM10.1 14.8l2.22-6.14 2.22 6.14h-4.44z"/>
       </svg>
     ),
   },
@@ -27,11 +29,13 @@ const PROVIDERS = [
     id: "openai",
     name: "GPT-4o",
     sub: "OpenAI",
-    badge: "gpt-4o-search",
-    color: "#10A37F",
+    badge: "search",
+    color: "#10A37F", // OpenAI Green
+    bgColor: "rgba(16, 163, 127, 0.04)",
+    borderColor: "rgba(16, 163, 127, 0.12)",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M22.283 9.392a5.998 5.998 0 0 0-.517-4.926 6.069 6.069 0 0 0-6.52-2.91A5.997 5.997 0 0 0 10.72 0 6.07 6.07 0 0 0 4.93 4.08 5.998 5.998 0 0 0 .918 7.155 6.07 6.07 0 0 0 1.67 13.56a6 6 0 0 0 .517 4.926 6.07 6.07 0 0 0 6.52 2.91A5.998 5.998 0 0 0 13.28 24a6.07 6.07 0 0 0 5.791-4.08 5.998 5.998 0 0 0 4.012-3.074 6.07 6.07 0 0 0-.8-7.454zm-9.003 12.39a4.497 4.497 0 0 1-2.887-1.043l.143-.08 4.788-2.765a.795.795 0 0 0 .401-.69v-6.75l2.023 1.168a.073.073 0 0 1 .04.057v5.59a4.5 4.5 0 0 1-4.508 4.513zM3.38 18.45a4.498 4.498 0 0 1-.538-3.022l.143.086 4.788 2.765c.25.145.56.145.81 0l5.845-3.375v2.337a.073.073 0 0 1-.029.063L9.51 20.117a4.497 4.497 0 0 1-6.13-1.666zM2.26 7.993A4.498 4.498 0 0 1 4.598 5.89v5.66a.787.787 0 0 0 .398.687l5.845 3.375-2.023 1.168a.073.073 0 0 1-.07.006L3.974 14.1a4.5 4.5 0 0 1-1.714-6.107zm16.641 3.869-5.845-3.375 2.023-1.167a.073.073 0 0 1 .07-.006l4.774 2.787a4.5 4.5 0 0 1-.698 8.12v-5.662a.794.794 0 0 0-.324-.697zm2.01-3.03-.143-.087-4.788-2.764a.801.801 0 0 0-.81 0L9.325 9.356V7.019a.073.073 0 0 1 .029-.063l4.774-2.787a4.5 4.5 0 0 1 6.784 4.692zm-12.67 4.174-2.023-1.168a.073.073 0 0 1-.04-.057V6.19a4.5 4.5 0 0 1 7.386-3.453l-.143.08-4.788 2.765a.795.795 0 0 0-.401.69v6.75zm1.098-2.368 2.602-1.503 2.602 1.5v3l-2.602 1.5-2.602-1.5v-3z"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M22.28 9.39a6.07 6.07 0 0 0-.52-4.93 6.07 6.07 0 0 0-6.51-2.91A6.07 6.07 0 0 0 10.72 0 6.07 6.07 0 0 0 4.93 4.08a6.07 6.07 0 0 0-4.01 3.07 6.07 6.07 0 0 0 .75 6.41 6.07 6.07 0 0 0 .52 4.93 6.07 6.07 0 0 0 6.51 2.91A6.07 6.07 0 0 0 13.28 24a6.07 6.07 0 0 0 5.79-4.08 6.07 6.07 0 0 0 4.01-3.07 6.07 6.07 0 0 0-.8-7.46zm-3.9 8.2l-2.02-1.16a.1.1 0 0 1-.04-.06v-5.59a4.51 4.51 0 0 0-7.39-3.48l-2.02-1.17a6.07 6.07 0 0 1 9.45 4.65v5.59a.1.1 0 0 1 .02.06zM8.26 10.51a4.51 4.51 0 0 1 7.39-3.48l2.02-1.17a6.07 6.07 0 0 0-9.45-4.65v5.59a.1.1 0 0 0 .04.06l2 .15z"/>
       </svg>
     ),
   },
@@ -39,11 +43,13 @@ const PROVIDERS = [
     id: "gemini",
     name: "Gemini",
     sub: "Google",
-    badge: "gemini-3-flash-preview",
-    color: "#4285F4",
+    badge: "3-flash",
+    color: "#1A73E8", // Google Blue
+    bgColor: "rgba(26, 115, 232, 0.04)",
+    borderColor: "rgba(26, 115, 232, 0.12)",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12zm0-4.5c-.454-3.64-3.36-6.546-7-7 3.64-.454 6.546-3.36 7-7 .454 3.64 3.36 6.546 7 7-3.64.454-6.546 3.36-7 7z"/>
       </svg>
     ),
   },
@@ -56,9 +62,9 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
 
   return (
     <div className="hero">
-      <div className="hero-tag">
-        <span className="tag-dot" />
-        AI-Powered • 7-Step Workflow • Web Search Enabled
+      <div className="hero-eyebrow">
+        <span className="eyebrow-dot" aria-hidden="true" />
+        AI-Powered · 7-Step Workflow · Live Web Search
       </div>
 
       <h1 className="hero-title">
@@ -69,21 +75,28 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
       <p className="hero-sub">
         Enter your website URL. Our AI agent analyzes your brand, researches competitors,
         generates topics, performs keyword research, and writes a complete 1800–2500 word
-        blog post — with live web search at every step.
+        blog post with live web search at every step.
       </p>
 
       {/* Provider selector */}
       <div className="provider-section">
-        <span className="provider-label">AI Model</span>
+        <span className="provider-label">Select AI Model</span>
         <div className="provider-pills">
           {PROVIDERS.map((p) => (
             <button
               key={p.id}
               className={`provider-pill ${provider === p.id ? "active" : ""}`}
               onClick={() => setProvider(p.id)}
-              style={provider === p.id ? { borderColor: p.color, color: p.color, background: `${p.color}10` } : {}}
+              style={
+                provider === p.id
+                  ? { borderColor: p.borderColor, background: p.bgColor }
+                  : {}
+              }
             >
-              <span className="provider-pill-icon" style={provider === p.id ? { color: p.color } : {}}>
+              <span
+                className="provider-pill-icon"
+                style={provider === p.id ? { color: p.color } : {}}
+              >
                 {p.icon}
               </span>
               <span className="provider-pill-text">
@@ -91,7 +104,10 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
                 <span className="provider-pill-sub">{p.sub}</span>
               </span>
               {provider === p.id && (
-                <span className="provider-pill-badge" style={{ background: p.color }}>
+                <span
+                  className="provider-pill-badge"
+                  style={{ background: p.color }}
+                >
                   {p.badge}
                 </span>
               )}
@@ -121,7 +137,7 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
           </div>
           <button className="btn-primary" onClick={onStart} disabled={!url.trim()}>
             Analyze
-            <ArrowRight size={16} strokeWidth={2.5} />
+            <ArrowRight size={15} strokeWidth={2.5} />
           </button>
         </div>
       </div>
@@ -130,7 +146,9 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
       <div className="feature-pills">
         {FEATURES.map((f) => (
           <div className="feature-pill" key={f}>
-            <span className="pill-check">✓</span>
+            <span className="pill-check">
+              <CheckCircle size={11} strokeWidth={2.5} />
+            </span>
             {f}
           </div>
         ))}
@@ -141,14 +159,17 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
 
 function GlobeIcon() {
   return (
-    <svg
-      width="16" height="16" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-      style={{ color: "#94A3B8", position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
-    >
-      <circle cx="12" cy="12" r="10"/>
-      <line x1="2" x2="22" y1="12" y2="12"/>
-      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-    </svg>
+    <Globe
+      size={15}
+      strokeWidth={1.8}
+      style={{
+        color: "var(--text-muted)",
+        position: "absolute",
+        left: 14,
+        top: "50%",
+        transform: "translateY(-50%)",
+        pointerEvents: "none",
+      }}
+    />
   );
 }
