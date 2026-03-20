@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { Globe, Zap, RotateCcw, Wifi } from "lucide-react";
 import { PrivacyNotice } from "./PrivacyNotice";
 
-export default function Header({ phase, siteUrl, onReset, provider }) {
+export default function Header({ phase, siteUrl, onReset, provider, onProviderChange }) {
   const displayUrl = useMemo(() => {
     return siteUrl ? siteUrl.replace(/^https?:\/\//, "") : "";
   }, [siteUrl]);
@@ -23,16 +23,14 @@ export default function Header({ phase, siteUrl, onReset, provider }) {
           <span className="brand-name">
             SEO<span className="brand-accent">Agent</span>
           </span>
-          <div className="provider-indicator">
-            {provider === "gemini" && (
-              <span className="provider-mini-badge" style={{ borderColor: "rgba(159, 18, 57, 0.12)", color: "#9F1239" }}>Gemini</span>
-            )}
-            {provider === "openai" && (
-              <span className="provider-mini-badge" style={{ borderColor: "rgba(190, 18, 60, 0.12)", color: "#BE123C" }}>GPT-4o</span>
-            )}
-            {provider === "anthropic" && (
-              <span className="provider-mini-badge" style={{ borderColor: "rgba(225, 29, 72, 0.12)", color: "#E11D48" }}>Claude</span>
-            )}
+          <div className="provider-selector-wrap">
+            <select 
+              className="header-provider-select"
+              value={provider}
+              onChange={(e) => onProviderChange(e.target.value)}
+            >
+              <option value="gemini">Gemini 3 Flash</option>
+            </select>
           </div>
         </div>
 

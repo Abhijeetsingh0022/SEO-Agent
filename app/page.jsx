@@ -8,6 +8,8 @@ import StepTracker from "@/components/StepTracker";
 import StepCard from "@/components/StepCard";
 import ExportActions from "@/components/ExportActions";
 // import Footer from "@/components/Footer";
+import DashboardSidebar from "@/components/DashboardSidebar";
+import DashboardNavigation from "@/components/DashboardNavigation";
 
 export default function Page() {
   const {
@@ -16,16 +18,30 @@ export default function Page() {
     provider, setProvider,
     phase, siteUrl,
     stepData, renderedSteps, allDone,
-    start, reset, retryStep,
+    start, reset, retryStep, handleGateSubmit,
     bottomRef,
     steps,
     hasSession, restoreSession, dismissSession,
+    activeStepId,
+    businessCategory, setBusinessCategory,
+    keyProducts, setKeyProducts,
+    targetAudience, setTargetAudience,
     progressPct,
+    internalData,
+    generateVariations,
+    isGeneratingVariations,
   } = useSEOWorkflow();
 
   return (
     <div className="app">
-      <Header phase={phase} siteUrl={siteUrl} onReset={reset} provider={provider} progressPct={progressPct} />
+      <Header 
+        phase={phase} 
+        siteUrl={siteUrl} 
+        onReset={reset} 
+        provider={provider} 
+        onProviderChange={setProvider}
+        progressPct={progressPct} 
+      />
 
       <main className="main">
         <div className="container">
@@ -58,6 +74,12 @@ export default function Page() {
                 onStart={start}
                 provider={provider}
                 setProvider={setProvider}
+                businessCategory={businessCategory}
+                setBusinessCategory={setBusinessCategory}
+                keyProducts={keyProducts}
+                setKeyProducts={setKeyProducts}
+                targetAudience={targetAudience}
+                setTargetAudience={setTargetAudience}
               />
               {urlError && (
                 <div className="url-error" style={{ margin: "0 auto" }}>
@@ -70,9 +92,21 @@ export default function Page() {
 
           {/* ── RUNNING / DONE ────────────────────── */}
           {(phase === "running" || phase === "done") && (
-            <div className="workflow-wrap">
+            <div className="dashboard-grid-3">
+              {/* Left Column: Navigation */}
+              <aside className="dashboard-nav">
+                <DashboardNavigation 
+                  steps={steps} 
+                  stepData={stepData}
+                  siteUrl={siteUrl}
+                  currentStepId={activeStepId}
+                />
+              </aside>
 
-              {/* Step tracker */}
+              {/* Center Column: Main Content */}
+              <div className="workflow-wrap">
+
+                {/* Step tracker */}
               <StepTracker steps={steps} stepData={stepData} progressPct={progressPct} />
 
               {/* Complete banner */}
@@ -97,6 +131,7 @@ export default function Page() {
                   step={s}
                   data={stepData[s.id]}
                   onRetry={retryStep}
+                  onGateSubmit={handleGateSubmit}
                 />
               ))}
 
@@ -105,7 +140,19 @@ export default function Page() {
                 <ExportActions stepData={stepData} siteUrl={siteUrl} onReset={reset} />
               )}
 
-              <div ref={bottomRef} />
+                <div ref={bottomRef} />
+              </div>
+              
+              {/* Sidebar Metrics Dashboard */}
+              <aside className="dashboard-sidebar">
+                <DashboardSidebar 
+                  stepData={stepData} 
+                  progressPct={progressPct} 
+                  internalData={internalData}
+                  onGenerateVariations={generateVariations}
+                  isGeneratingVariations={isGeneratingVariations}
+                />
+</aside>
             </div>
           )}
 

@@ -16,6 +16,8 @@ An advanced, AI-powered internal SEO strategist and blog writing agent built wit
   5. **Blog Outline**: Creates a detailed structured outline.
   6. **Full Blog Post**: Writes a comprehensive, 1800–2500 word Markdown post.
   7. **SEO Output**: Generates Meta Title, Meta Description, URL Slug, and tags.
+- **Real-Time SERP Analytics**: Evaluates search competitors using a custom, 100% free DuckDuckGo HTML scraper (`cheerio`) to pull live ranking data, snippets, and related search queries natively during the keyword research phase, eliminating the need for paid SERP API keys.
+- **Focus-Driven UI Enhancements**: Features visually distinct, dynamic matrices for competitor data and refined topic selection inputs.
 - **Human-in-the-Loop "Gates"**: The UI pauses for user approval/modification before critical steps (like choosing a topic or approving an outline).
 - **Beautiful SaaS UI**: Designed with a premium, light-themed standard SaaS aesthetic featuring fluid animations, Lucide icons, and Plus Jakarta Sans.
 

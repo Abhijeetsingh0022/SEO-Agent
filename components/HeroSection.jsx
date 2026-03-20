@@ -1,5 +1,15 @@
 "use client";
-import { ArrowRight, Globe, CheckCircle } from "lucide-react";
+import { 
+  ArrowRight, 
+  Globe, 
+  ChevronRight, 
+  CheckCircle2, 
+  Crown, 
+  Zap,
+  Tag,
+  Package,
+  Users
+} from "lucide-react";
 
 const FEATURES = [
   "Website Analysis",
@@ -8,37 +18,10 @@ const FEATURES = [
   "Keyword Research",
   "Full Blog Post",
   "SEO Meta Tags",
+
 ];
 
 const PROVIDERS = [
-  {
-    id: "anthropic",
-    name: "Claude",
-    sub: "Anthropic",
-    badge: "opus-4-5",
-    color: "#D97757", // Anthropic Burnt Orange/Coral
-    bgColor: "rgba(217, 119, 87, 0.04)",
-    borderColor: "rgba(217, 119, 87, 0.12)",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M18.82 19.8l-5.64-14.8c-.14-.37-.7-.37-.84 0L6.7 19.8c-.06.16.06.32.22.32h2.24c.1 0 .18-.06.22-.16l1.24-3.44h5.4l1.24 3.44c.04.1.12.16.22.16h2.24c.16 0 .28-.16.22-.32zM10.1 14.8l2.22-6.14 2.22 6.14h-4.44z"/>
-      </svg>
-    ),
-  },
-  {
-    id: "openai",
-    name: "GPT-4o",
-    sub: "OpenAI",
-    badge: "search",
-    color: "#10A37F", // OpenAI Green
-    bgColor: "rgba(16, 163, 127, 0.04)",
-    borderColor: "rgba(16, 163, 127, 0.12)",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M22.28 9.39a6.07 6.07 0 0 0-.52-4.93 6.07 6.07 0 0 0-6.51-2.91A6.07 6.07 0 0 0 10.72 0 6.07 6.07 0 0 0 4.93 4.08a6.07 6.07 0 0 0-4.01 3.07 6.07 6.07 0 0 0 .75 6.41 6.07 6.07 0 0 0 .52 4.93 6.07 6.07 0 0 0 6.51 2.91A6.07 6.07 0 0 0 13.28 24a6.07 6.07 0 0 0 5.79-4.08 6.07 6.07 0 0 0 4.01-3.07 6.07 6.07 0 0 0-.8-7.46zm-3.9 8.2l-2.02-1.16a.1.1 0 0 1-.04-.06v-5.59a4.51 4.51 0 0 0-7.39-3.48l-2.02-1.17a6.07 6.07 0 0 1 9.45 4.65v5.59a.1.1 0 0 1 .02.06zM8.26 10.51a4.51 4.51 0 0 1 7.39-3.48l2.02-1.17a6.07 6.07 0 0 0-9.45-4.65v5.59a.1.1 0 0 0 .04.06l2 .15z"/>
-      </svg>
-    ),
-  },
   {
     id: "gemini",
     name: "Gemini",
@@ -55,7 +38,14 @@ const PROVIDERS = [
   },
 ];
 
-export default function HeroSection({ url, setUrl, onStart, provider, setProvider }) {
+export default function HeroSection({ 
+  url, setUrl, 
+  onStart, 
+  provider, setProvider,
+  businessCategory, setBusinessCategory,
+  keyProducts, setKeyProducts,
+  targetAudience, setTargetAudience
+}) {
   function handleKey(e) {
     if (e.key === "Enter") onStart();
   }
@@ -116,29 +106,82 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
         </div>
       </div>
 
-      {/* Input */}
+      {/* Input Card */}
       <div className="input-card">
-        <div className="input-label-row">
-          <label className="field-label" htmlFor="site-url">Website URL</label>
+        <div className="input-card-header">
+          <h2 className="input-card-title">Brand & Website Analysis</h2>
+          <p className="input-card-sub">AI analyzes brand tone, detects SEO gaps & unlocks opportunities</p>
         </div>
-        <div className="input-row">
-          <div className="input-wrapper">
-            <GlobeIcon />
-            <input
-              id="site-url"
-              className="url-input"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={handleKey}
-              placeholder="https://yourbrand.com"
-              autoFocus
-            />
+
+        <div className="input-grid">
+          {/* Website URL */}
+          <div className="input-group full">
+            <label className="field-label" htmlFor="site-url">Website URL <span className="text-red">*</span></label>
+            <div className="input-row">
+              <div className="input-wrapper">
+                <GlobeIcon />
+                <input
+                  id="site-url"
+                  className="url-input"
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  onKeyDown={handleKey}
+                  placeholder="https://yourbrand.com"
+                  autoFocus
+                />
+              </div>
+            </div>
           </div>
-          <button className="btn-primary" onClick={onStart} disabled={!url.trim()}>
-            Analyze
-            <ArrowRight size={15} strokeWidth={2.5} />
-          </button>
+
+          {/* Business Category */}
+          <div className="input-group">
+            <label className="field-label">Business Category</label>
+            <div className="input-wrapper">
+              <Tag size={16} className="input-icon-left" />
+              <input
+                className="context-input"
+                value={businessCategory}
+                onChange={(e) => setBusinessCategory(e.target.value)}
+                placeholder="e.g. Skincare, Jewellery, Fashion"
+              />
+            </div>
+          </div>
+
+          {/* Key Products */}
+          <div className="input-group">
+            <label className="field-label">Key Products</label>
+            <div className="input-wrapper">
+              <Package size={16} className="input-icon-left" />
+              <input
+                className="context-input"
+                value={keyProducts}
+                onChange={(e) => setKeyProducts(e.target.value)}
+                placeholder="e.g. Face serums, Gold rings"
+              />
+            </div>
+          </div>
+
+          {/* Target Audience */}
+          <div className="input-group full">
+            <label className="field-label">Target Audience</label>
+            <div className="input-wrapper">
+              <Users size={16} className="input-icon-left" />
+              <input
+                className="context-input"
+                value={targetAudience}
+                onChange={(e) => setTargetAudience(e.target.value)}
+                placeholder="e.g. Women 25-40, Tech professionals..."
+              />
+            </div>
+          </div>
+
+          <div className="input-group action-group">
+            <button className="btn-primary start-btn" onClick={onStart} disabled={!url.trim()}>
+              Start Strategic Analysis
+              <ArrowRight size={15} strokeWidth={2.5} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -147,7 +190,7 @@ export default function HeroSection({ url, setUrl, onStart, provider, setProvide
         {FEATURES.map((f) => (
           <div className="feature-pill" key={f}>
             <span className="pill-check">
-              <CheckCircle size={11} strokeWidth={2.5} />
+              <CheckCircle2 size={11} strokeWidth={2.5} />
             </span>
             {f}
           </div>

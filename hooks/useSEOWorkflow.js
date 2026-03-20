@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { QualityAssurance } from "@/lib/qualityAssurance";
 import {
   STEPS,
@@ -40,7 +40,7 @@ function buildSummarizedHistory(fullHistory) {
   ];
 }
 
-async function callAPI(messages, systemPrompt, maxTokens, provider) {
+async function callAPI(messages, systemPrompt, maxTokens, provider, noCache = false) {
   const res = await fetch("/api/seo", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -49,16 +49,20 @@ async function callAPI(messages, systemPrompt, maxTokens, provider) {
       systemPrompt,
       maxTokens,
       provider,
+      noCache,
+      _salt: Math.random().toString(36).substring(7),
     }),
   });
 
   if (!res.ok) {
     let errText;
     try { errText = await res.text(); } catch { errText = `HTTP ${res.status}`; }
+    console.error(`[API Call Failed] URL: /api/seo | Status: ${res.status} | Error: ${errText}`);
     throw new Error(`API error ${res.status}: ${errText}`);
   }
 
   const data = await res.json();
+  console.log(`[API Call Success] URL: /api/seo | Length: ${data.text?.length || 0}`);
   if (data.error) throw new Error(data.error);
   if (!data.text) throw new Error("Empty response from server. Please try again.");
   return data;
@@ -98,13 +102,27 @@ function clearSession() {
 }
 
 export function useSEOWorkflow() {
-  const [provider, setProvider] = useState("anthropic");
+  const [provider, setProvider] = useState("gemini");
   const [url, setUrl] = useState("");
   const [urlError, setUrlError] = useState("");
   const [phase, setPhase] = useState("idle");
   const [siteUrl, setSiteUrl] = useState("");
   const [stepData, setStepData] = useState({});
   const [hasSession, setHasSession] = useState(false);
+
+  // Advanced Brand Context
+  const [businessCategory, setBusinessCategory] = useState("");
+  const [keyProducts, setKeyProducts] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+
+  // Internal Background Intelligence
+  const [internalData, setInternalData] = useState({
+    radar: null,
+    velocity: 0,
+    rankings: [],
+  });
+  const [isGeneratingVariations, setIsGeneratingVariations] = useState(false);
+
   const conversationRef = useRef([]);
   const bottomRef = useRef(null);
   const stepInputsRef = useRef({});
@@ -113,6 +131,24 @@ export function useSEOWorkflow() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [stepData]);
+
+  // ── Reactive Workflow Chain ─────────────────────────────────
+  useEffect(() => {
+    if (phase !== "running") return;
+
+    // Phase 2 (Competitors) -> Start after Step 1 is done
+    if (stepData[1]?.status === 'done' && !stepData[2]) {
+      runStep2();
+    }
+    // Phase 3 (Topics) -> Start after Step 2 is done
+    if (stepData[2]?.status === 'done' && !stepData[3]) {
+      runStep3();
+    }
+    // Phase 7 (SEO Optimization) -> Start after Step 6 is done
+    if (stepData[6]?.status === 'done' && !stepData[7]) {
+      runStep7();
+    }
+  }, [stepData, phase]);
 
   // ── Load saved session on mount ──────────────────────────────
   useEffect(() => {
@@ -137,9 +173,12 @@ export function useSEOWorkflow() {
         stepData,
         conversation: conversationRef.current,
         provider,
+        businessCategory,
+        keyProducts,
+        targetAudience,
       });
     }
-  }, [stepData, phase, url, siteUrl, provider]);
+  }, [stepData, phase, url, siteUrl, provider, businessCategory, keyProducts, targetAudience]);
 
   function restoreSession() {
     const session = loadSession();
@@ -151,6 +190,31 @@ export function useSEOWorkflow() {
     setProvider(session.provider || "anthropic");
     conversationRef.current = session.conversation || [];
     setHasSession(false);
+
+    // AUTO-RESUME: If we were in the middle of automated steps, pick up where we left off
+    if (session.phase === "running") {
+      const lastDone = Math.max(0, ...Object.entries(session.stepData)
+        .filter(([_, d]) => d.status === "done")
+        .map(([id]) => parseInt(id)));
+
+      if (lastDone < 7) {
+        resumeWorkflow(session.siteUrl, lastDone);
+      }
+    }
+  }
+
+  async function resumeWorkflow(targetUrl, lastDone) {
+    // Wait a moment for state to settle
+    await new Promise(r => setTimeout(r, 800));
+
+    // Jump to the next step that needs running
+    if (lastDone === 0) runWorkflow(targetUrl);
+    else if (lastDone === 1) runStep2();
+    else if (lastDone === 2) runStep3();
+    else if (lastDone === 3) { /* Step 4 starts from Step 3 Gate */ }
+    else if (lastDone === 4) { /* Step 5 starts from Step 4 Gate */ }
+    else if (lastDone === 5) { /* Step 6 starts from Step 5 Gate */ }
+    else if (lastDone === 6) runStep7();
   }
 
   function dismissSession() {
@@ -158,11 +222,41 @@ export function useSEOWorkflow() {
     setHasSession(false);
   }
 
-  async function callSEO(userMessage, maxTokens = 4096) {
+  async function callSEO(userMessage, maxTokens = 4096, noCache = false) {
     conversationRef.current.push({ role: "user", content: userMessage });
-    const data = await callAPI(conversationRef.current, SYSTEM_PROMPT, maxTokens, provider);
-    conversationRef.current.push({ role: "assistant", content: data.text });
-    return data;
+    try {
+      const data = await callAPI(conversationRef.current, SYSTEM_PROMPT, maxTokens, provider, noCache);
+      conversationRef.current.push({ role: "assistant", content: data.text });
+      return data;
+    } catch (e) {
+      // Roll back the latest user message if it failed, so we don't end up with consecutive user messages
+      conversationRef.current.pop();
+      throw e;
+    }
+  }
+
+
+  // ── Production Hub: Generate 50+ Variations (Mocked at 3 for UI stability) ──
+  async function generateVariations() {
+    const mainContent = stepData[6]?.text;
+    if (!mainContent) return;
+
+    setIsGeneratingVariations(true);
+    try {
+      const prompt = `Based on this article, generate 3 professional content variations in a JSON object: 
+      1. "social": A Twitter/LinkedIn snippet.
+      2. "email": A short promo email body.
+      3. "recap": A 2-sentence TL;DR.
+      Content: ${mainContent.slice(0, 3000)}…`;
+
+      const res = await callAPI([{ role: "user", content: prompt }], "Always respond with STRICT JSON ONLY. Ensure the object has 'social', 'email', and 'recap' keys.", 1500, "openrouter");
+      const json = JSON.parse(res.text.match(/\{[\s\S]*\}/)?.[0] || res.text);
+      setInternalData(prev => ({ ...prev, variations: json }));
+    } catch (e) {
+      console.error("Failed to generate variations:", e);
+    } finally {
+      setIsGeneratingVariations(false);
+    }
   }
 
   // ── Retry mechanism ──────────────────────────────────────────
@@ -173,13 +267,13 @@ export function useSEOWorkflow() {
     try {
       let result;
       switch (stepId) {
-        case 1: result = await callSEO(PROMPT_STEP1(inputs.url)); break;
-        case 2: result = await callSEO(PROMPT_STEP2()); break;
-        case 3: result = await callSEO(PROMPT_STEP3()); break;
-        case 4: result = await callSEO(PROMPT_STEP4(inputs.topic)); break;
-        case 5: result = await callSEO(PROMPT_STEP5(inputs.topic, inputs.kwNote)); break;
-        case 6: result = await callSEO(PROMPT_STEP6(inputs.topic, inputs.outNote), 6000); break;
-        case 7: result = await callSEO(PROMPT_STEP7()); break;
+        case 1: result = await callSEO(inputs.url, 4096, true); break;
+        case 2: result = await callSEO(PROMPT_STEP2(), 4096, true); break;
+        case 3: result = await callSEO(PROMPT_STEP3(), 4096, true); break;
+        case 4: result = await callSEO(PROMPT_STEP4(inputs.topic), 4096, true); break;
+        case 5: result = await callSEO(PROMPT_STEP5(inputs.topic, inputs.kwNote), 4096, true); break;
+        case 6: result = await callSEO(PROMPT_STEP6(inputs.topic, inputs.outNote), 6000, true); break;
+        case 7: result = await callSEO(PROMPT_STEP7(), 4096, true); break;
         default: return;
       }
       patchStep(stepId, { status: "done", text: result.text, canRetry: false });
@@ -188,32 +282,79 @@ export function useSEOWorkflow() {
     }
   }
 
+  // Helper to extract keywords from Step 4 text
+  function extractKeywords(text) {
+    if (!text) return [];
+    // More flexible regex: matches "1. **Keyword**", "1. Keyword", and "Target Keyword: Keyword"
+    const matches = text.match(/(?:\d+\.\s+|\*\*|Target Keyword[:\s]+)\*{0,2}(.*?)(?:\*\*|:|\n|$)/gi) || [];
+    return matches
+      .map(m => m.replace(/^(?:\d+\.\s+|\*\*|Target Keyword[:\s]+)\*{0,2}/i, '').replace(/\*+$/, '').trim())
+      .filter(t => t.length > 2 && t.length < 100 && !t.toLowerCase().includes('intent') && !t.toLowerCase().includes('potential'))
+      .slice(0, 10);
+  }
+
+  // Helper to extract suggestions for the next step's gate
+  function extractSuggestionsForNextStep(text, stepId) {
+    if (!text) return [];
+    try {
+      if (stepId === 2) {
+        // From Competitor Analysis, extract 3 topic gaps
+        const gaps = text.match(/Gap \d+: (.*?)(?:\n|$)/gi) || [];
+        return gaps.map(g => g.replace(/Gap \d+: /i, '').split(':')[0].trim()).slice(0, 3);
+      }
+      if (stepId === 4) {
+        // From Keyword Research, extract top 3 keywords – Flexible matching
+        const kws = text.match(/(?:\d+\.\s+|\*\*|Target Keyword[:\s]+)\*{0,2}(.*?)(?:\*\*|:|\n|$)/gi) || [];
+        return kws
+          .map(k => k.replace(/^(?:\d+\.\s+|\*\*|Target Keyword[:\s]+)\*{0,2}/i, '').replace(/\*+$/, '').trim())
+          .filter(t => t.length > 2 && !t.toLowerCase().includes('intent'))
+          .slice(0, 3);
+      }
+      return [];
+    } catch { return []; }
+  }
+
   // ── Steps 1 → 2 → 3 ─────────────────────────────────────────
-  async function runWorkflow(targetUrl) {
-    stepInputsRef.current[1] = { url: targetUrl };
+  async function runWorkflow(rawUrl, context = {}) {
+    console.log(`[Workflow Start] URL: ${rawUrl} | Context:`, context);
+    const targetUrl = rawUrl?.trim();
+    stepInputsRef.current[1] = { url: targetUrl, ...context };
     patchStep(1, { status: "loading" });
     try {
-      const d1 = await callSEO(PROMPT_STEP1(targetUrl));
+      const d1 = await callSEO(PROMPT_STEP1(targetUrl, context));
       patchStep(1, { status: "done", text: d1.text, canRetry: false });
     } catch (e) {
       patchStep(1, { status: "error", error: e.message, canRetry: true });
-      return;
     }
+  }
 
+  async function runStep2() {
     stepInputsRef.current[2] = {};
     patchStep(2, { status: "loading" });
     try {
-      const d2 = await callSEO(PROMPT_STEP2());
+      // Fetch Live Competitors via SERP API
+      const serpRes = await fetch("/api/serp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: `top organic search competitors for ${siteUrl}` }),
+      }).then(res => res.json()).catch(() => null);
+
+      const serpDataStr = serpRes && !serpRes.error ? JSON.stringify(serpRes.results || serpRes) : "";
+      const d2 = await callSEO(PROMPT_STEP2(serpDataStr));
       patchStep(2, { status: "done", text: d2.text, canRetry: false });
     } catch (e) {
       patchStep(2, { status: "error", error: e.message, canRetry: true });
-      return;
     }
+  }
 
+  async function runStep3() {
     stepInputsRef.current[3] = {};
     patchStep(3, { status: "loading" });
     try {
-      const d3 = await callSEO(PROMPT_STEP3());
+      const rivalsData = stepData[2]?.serpData?.organic || [];
+      const rivalsStr = rivalsData.map(r => `${r.title} (${r.link})`).join(", ");
+
+      const d3 = await callSEO(PROMPT_STEP3(rivalsStr));
       patchStep(3, {
         status: "waiting",
         text: d3.text,
@@ -246,6 +387,11 @@ export function useSEOWorkflow() {
           body: JSON.stringify({ query: topicChoice }),
         }).then(res => res.json()).catch(() => null)
       ]);
+
+      const keywords = extractKeywords(d4.text);
+      if (keywords.length > 0) {
+        checkRankings(siteUrl, keywords);
+      }
 
       patchStep(4, {
         status: "waiting",
@@ -316,11 +462,14 @@ export function useSEOWorkflow() {
       } catch (err) {
         console.log("Quality check skipped:", err.message);
       }
+
     } catch (e) {
       patchStep(6, { status: "error", error: e.message, canRetry: true });
-      return;
     }
+  }
 
+  // ── Step 7 ───────────────────────────────────────────────────
+  async function runStep7() {
     stepInputsRef.current[7] = {};
     patchStep(7, { status: "loading" });
     try {
@@ -332,6 +481,44 @@ export function useSEOWorkflow() {
       patchStep(7, { status: "error", error: e.message, canRetry: true });
     }
   }
+
+  // ── Rank Tracker logic ──────────────────────────────────────
+  async function checkRankings(targetUrl, keywords = []) {
+    if (!targetUrl || !keywords.length) return;
+    const results = [];
+    // Only track top 3 for performance in this demo
+    for (const kw of keywords.slice(0, 3)) {
+      try {
+        const res = await fetch("/api/serp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: kw }),
+        }).then(r => r.json());
+
+        let hostname = targetUrl;
+        try { hostname = new URL(targetUrl).hostname; } catch { /* fallback to raw string */ }
+
+        const pos = res.organic?.find(o => o.link.includes(hostname))?.position || "100+";
+        results.push({ keyword: kw, position: pos, change: 0 });
+      } catch (e) {
+        console.warn(`Rank check failed for ${kw}:`, e.message);
+      }
+    }
+    setInternalData(prev => ({ ...prev, rankings: results }));
+  }
+
+  // ── Centralized Gate Submission ──────────────────────────────
+  // This avoids losing 'onSubmit' functions when serializing to LocalStorage
+  const handleGateSubmit = useCallback((stepId, value) => {
+    const topic = stepInputsRef.current[4]?.topic;
+
+    switch (stepId) {
+      case 3: runStep4(value); break;
+      case 4: runStep5(topic, value); break;
+      case 5: runStep6(topic, value); break;
+      default: console.warn("No gate handler for step", stepId);
+    }
+  }, [stepData, siteUrl]); // topic is in a ref, but we might want to trigger on siteUrl/stepData changes
 
   // ── start/reset ──────────────────────────────────────────────
   function start() {
@@ -356,7 +543,11 @@ export function useSEOWorkflow() {
     setStepData({});
     setSiteUrl(clean);
     setPhase("running");
-    runWorkflow(clean);
+    runWorkflow(clean, {
+      category: businessCategory,
+      products: keyProducts,
+      audience: targetAudience
+    });
   }
 
   function reset() {
@@ -365,6 +556,9 @@ export function useSEOWorkflow() {
     setUrlError("");
     setSiteUrl("");
     setStepData({});
+    setBusinessCategory("");
+    setKeyProducts("");
+    setTargetAudience("");
     conversationRef.current = [];
     clearSession();
     setHasSession(false);
@@ -375,16 +569,34 @@ export function useSEOWorkflow() {
   const doneCount = STEPS.filter((s) => stepData[s.id]?.status === "done").length;
   const progressPct = Math.round((doneCount / STEPS.length) * 100);
 
+  // Calculate active step for the sidebar highlight
+  const activeStepId = useMemo(() => {
+    // Check for any step currently 'loading' or 'waiting'
+    const current = STEPS.find(s => stepData[s.id]?.status === 'loading' || stepData[s.id]?.status === 'waiting');
+    if (current) return current.id;
+
+    // Otherwise, find the last 'done' step and highlight the next one
+    const doneSteps = STEPS.filter(s => stepData[s.id]?.status === 'done');
+    if (doneSteps.length === 0) return 1;
+    const lastDoneId = Math.max(...doneSteps.map(s => s.id));
+    return STEPS.find(s => s.id === lastDoneId + 1)?.id || lastDoneId;
+  }, [stepData]);
+
   return {
     url, setUrl,
     urlError,
     provider, setProvider,
     phase, siteUrl,
     stepData, renderedSteps, allDone,
-    start, reset, retryStep,
+    start, reset, retryStep, handleGateSubmit,
     bottomRef,
     steps: STEPS,
     hasSession, restoreSession, dismissSession,
     progressPct,
+    activeStepId,
+    businessCategory, setBusinessCategory,
+    keyProducts, setKeyProducts,
+    targetAudience, setTargetAudience,
+    internalData,
   };
 }

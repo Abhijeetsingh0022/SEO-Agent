@@ -5,7 +5,7 @@ import { ICON_MAP } from "@/lib/iconMap";
 export default function StepTracker({ steps, stepData, progressPct = 0 }) {
   return (
     <div className="tracker-bar">
-      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0 }}>
+      <div className="tracker-steps-row">
         {steps.map((step, i) => {
           const sd = stepData[step.id];
           const isDone   = sd?.status === "done";
@@ -13,16 +13,18 @@ export default function StepTracker({ steps, stepData, progressPct = 0 }) {
           const Icon = ICON_MAP[step.icon] || ICON_MAP.search;
 
           return (
-            <div key={step.id} className="tracker-item">
-              <div className={`tracker-step ${isDone ? "done" : isActive ? "active" : ""}`}>
-                {isDone
-                  ? <Check size={12} strokeWidth={3} />
-                  : <Icon size={12} strokeWidth={2} />
-                }
+            <div key={step.id} className="tracker-item-wrap">
+              <div className="tracker-item">
+                <div className={`tracker-step ${isDone ? "done" : isActive ? "active" : ""}`}>
+                  {isDone
+                    ? <Check size={14} strokeWidth={3} />
+                    : <Icon size={14} strokeWidth={2} />
+                  }
+                </div>
+                <span className={`tracker-label ${isDone ? "done" : isActive ? "active" : ""}`}>
+                  {step.short}
+                </span>
               </div>
-              <span className={`tracker-label ${isDone ? "done" : isActive ? "active" : ""}`}>
-                {step.short}
-              </span>
               {i < steps.length - 1 && (
                 <div className={`tracker-line ${isDone ? "done" : ""}`} />
               )}
@@ -31,11 +33,14 @@ export default function StepTracker({ steps, stepData, progressPct = 0 }) {
         })}
       </div>
 
-      {/* Progress bar */}
-      <div className="tracker-progress-bar">
-        <div className="tracker-progress-fill" style={{ width: `${progressPct}%` }} />
+      <div className="tracker-footer">
+        <div className="tracker-progress-container">
+          <div className="tracker-progress-bar">
+            <div className="tracker-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
+          <p className="tracker-progress-label">{progressPct}% Complete</p>
+        </div>
       </div>
-      <p className="tracker-progress-label">{progressPct}% Complete</p>
     </div>
   );
 }

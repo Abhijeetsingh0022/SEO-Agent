@@ -4,16 +4,30 @@ import { Send, MessageSquare } from "lucide-react";
 import { SecureSanitizer } from "@/lib/secureSanitizer";
 import TopicSelector from "./TopicSelector";
 
-export default function GateInput({ type, prompt, hint, placeholder, onSubmit, text }) {
+export default function GateInput({ gate, onSubmit, text, stepId }) {
+  const { type, prompt, hint, placeholder, suggestions, onSubmit: gateOnSubmit } = gate || {};
+  const finalOnSubmit = gateOnSubmit || onSubmit;
+  
   // Route topic-select to dedicated selector component
   if (type === "topic-select") {
     return (
       <div className="gate-box">
         <div className="gate-header">
-          <div className="gate-icon"><MessageSquare size={13} strokeWidth={2} /></div>
-          <p className="gate-prompt">{prompt}</p>
+          <div className="gate-header-left">
+            <div className="gate-icon"><MessageSquare size={13} strokeWidth={2.5} className="text-brand" /></div>
+            <p className="gate-prompt">{prompt}</p>
+          </div>
+          {suggestions?.length > 0 && (
+            <div className="gate-suggestions">
+              {suggestions.map((s, idx) => (
+                <button key={idx} className="gate-pill" onClick={() => finalOnSubmit(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-        <TopicSelector text={text} onSubmit={onSubmit} />
+        <TopicSelector text={text} onSubmit={(val) => finalOnSubmit(val)} />
       </div>
     );
   }
@@ -47,7 +61,7 @@ export default function GateInput({ type, prompt, hint, placeholder, onSubmit, t
       }
       setSubmitted(true);
       setError("");
-      onSubmit(sanitized);
+      finalOnSubmit(sanitized);
     } catch (err) {
       setError(err.message);
       submitRef.current = false;
@@ -61,10 +75,23 @@ export default function GateInput({ type, prompt, hint, placeholder, onSubmit, t
   return (
     <div className="gate-box">
       <div className="gate-header">
-        <div className="gate-icon">
-          <MessageSquare size={13} strokeWidth={2} />
+        <div className="gate-header-left">
+          <div className="gate-icon">
+            <MessageSquare size={13} strokeWidth={2.5} className="text-brand" />
+          </div>
+          <p className="gate-prompt">{prompt}</p>
         </div>
-        <p className="gate-prompt">{prompt}</p>
+        
+        {/* Suggestion Pills - Proactive AI Recommendations */}
+        {suggestions?.length > 0 && !submitted && (
+          <div className="gate-suggestions">
+            {suggestions.map((s, idx) => (
+              <button key={idx} className="gate-pill" onClick={() => { setValue(s); setTimeout(() => submit(), 50); }}>
+                {s}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="gate-row">
         <input

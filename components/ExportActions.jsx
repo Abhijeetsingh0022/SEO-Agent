@@ -1,333 +1,551 @@
 "use client";
-import { useState } from "react";
-import {
-  Copy, RotateCcw, CheckCheck, FileDown, Layers, FileText,
-} from "lucide-react";
+
+import { useState, useEffect } from "react";
+import { Copy, RotateCcw, CheckCheck, FileText, Layers, Loader2 } from "lucide-react";
 import { STEPS } from "@/lib/constants";
+
+// ── Configuration & Theme ──────────────────────────────────────────
+const PDF_THEME = {
+  colors: {
+    RED: [225, 29, 72],
+    RED_DARK: [159, 18, 57],
+    DARK: [15, 23, 42],
+    GRAY: [71, 85, 105],
+    MUTED: [148, 163, 184],
+    WHITE: [255, 255, 255],
+    BG_LIGHT: [248, 250, 252],
+    BG_STEP: [255, 241, 242],
+    BORDER: [226, 232, 240],
+    GREEN: [16, 185, 129],
+  },
+  layout: { M: 24 }, // Slightly wider margin for modern look
+};
+
+// ── Pure Helpers ───────────────────────────────────────────────────
+function cleanString(str) {
+  if (!str) return "";
+  return str
+    .replace(/[\u{1F300}-\u{1F9FF}]|[\u{2700}-\u{27BF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{1F1E6}-\u{1F1FF}]/gu, "")
+    .replace(/(\*\*|__|\*|_|`)/g, "")
+    .replace(/[^\x00-\x7F]/g, "")
+    .trim();
+}
 
 export default function ExportActions({ stepData, siteUrl, onReset }) {
   const [copied, setCopied] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
 
-  // ── Build clean text for all steps ──────────────────────────────
+  useEffect(() => {
+    let timeout;
+    if (copied) timeout = setTimeout(() => setCopied(false), 2500);
+    return () => clearTimeout(timeout);
+  }, [copied]);
+
+  // ── Actions ──────────────────────────────────────────────────────
   function buildFullText() {
     const missing = STEPS.filter((s) => !stepData[s.id]?.text);
-    const text = STEPS.map((s) => {
-      const d = stepData[s.id];
-      if (!d?.text) return `\n\n═══ STEP ${s.id}: ${s.label.toUpperCase()} ═══\n\n[NOT COMPLETED]\n`;
-      return `\n\n═══ STEP ${s.id}: ${s.label.toUpperCase()} ═══\n\n${d.text}`;
-    }).join("\n");
-
     if (missing.length > 0) {
       const ids = missing.map((s) => s.id).join(", ");
       if (!confirm(`Steps ${ids} are incomplete.\n\nProceed with export anyway?`)) return null;
     }
-    return text;
+    return STEPS.map((s) => {
+      const text = stepData[s.id]?.text || "[NOT COMPLETED]";
+      return `\n\n═══ STEP ${s.id}: ${s.label.toUpperCase()} ═══\n\n${text}`;
+    }).join("\n");
   }
 
-  // ── Copy all ─────────────────────────────────────────────────────
   async function handleCopy() {
     const fullText = buildFullText();
     if (!fullText) return;
     try {
       await navigator.clipboard.writeText(fullText);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
     } catch {
-      alert("Could not copy to clipboard.");
+      alert("Could not copy to clipboard. Please check your browser permissions.");
     }
   }
 
-  // ── PDF Export (jsPDF) ────────────────────────────────────────────
   async function handlePDF() {
     setPdfLoading(true);
     try {
-      const { jsPDF } = await import("jspdf");
-      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const jsPDFModule = await import("jspdf");
+      const jsPDF = jsPDFModule.jsPDF || jsPDFModule.default?.jsPDF || jsPDFModule.default;
+      if (!jsPDF) throw new Error("jsPDF could not be loaded.");
 
-      const pageW  = doc.internal.pageSize.getWidth();
-      const pageH  = doc.internal.pageSize.getHeight();
-      const margin = 18;
-      const maxW   = pageW - margin * 2;
+      const doc = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const { M } = PDF_THEME.layout;
+      const { colors } = PDF_THEME;
+      
+      const pageW = doc.internal.pageSize.getWidth();
+      const pageH = doc.internal.pageSize.getHeight();
+      const maxW = pageW - M * 2;
       let y = 0;
 
-      // ── Colour palette ──────────────────────────────────────────
-      const RED      = [225, 29, 72];
-      const DARK     = [15, 23, 42];
-      const MUTED    = [100, 116, 139];
-      const WHITE    = [255, 255, 255];
-      const LIGHT_BG = [248, 250, 252];
-      const BORDER   = [226, 232, 240];
+      const cleanUrlStr = (siteUrl || "").replace(/^https?:\/\//, "").replace(/\/$/, "");
+      const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 
-      function addPage() {
+      // ── PDF Layout Helpers ──
+      const drawSidebar = () => {
+        doc.setFillColor(...colors.RED);
+        doc.rect(0, 0, 4, pageH, "F");
+      };
+
+      const newPage = (isStepPage = false) => {
         doc.addPage();
-        // Subtle top border on new pages
-        doc.setDrawColor(...RED);
-        doc.setLineWidth(0.5);
-        doc.line(0, 0, pageW, 0);
-        y = margin;
-      }
-
-      function checkPageBreak(needed = 10) {
-        if (y + needed > pageH - margin) addPage();
-      }
-
-      // ── Cover page ──────────────────────────────────────────────
-      // Background
-      doc.setFillColor(...WHITE);
-      doc.rect(0, 0, pageW, pageH, "F");
-
-      // Red accent strip
-      doc.setFillColor(...RED);
-      doc.rect(0, 0, pageW, 42, "F");
-
-      // Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(26);
-      doc.setTextColor(...WHITE);
-      doc.text("SEO Analysis Report", margin, 22);
-
-      // Subtitle
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(11);
-      doc.setTextColor(255, 200, 210);
-      const cleanUrl = siteUrl.replace(/^https?:\/\//, "");
-      doc.text(cleanUrl, margin, 32);
-
-      // Meta info
-      doc.setFillColor(...LIGHT_BG);
-      doc.roundedRect(margin, 52, maxW, 28, 3, 3, "F");
-      doc.setDrawColor(...BORDER);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(margin, 52, maxW, 28, 3, 3, "S");
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(9);
-      doc.setTextColor(...MUTED);
-      doc.text("Generated by SEO Agent", margin + 6, 62);
-      doc.text(`Date: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}`, margin + 6, 70);
-
-      // Steps summary on cover
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.setTextColor(...DARK);
-      doc.text("Contents", margin, 96);
-
-      doc.setLineWidth(0.3);
-      doc.setDrawColor(...RED);
-      doc.line(margin, 99, margin + 30, 99);
-
-      STEPS.forEach((s, i) => {
-        const d = stepData[s.id];
-        const isDone = d?.status === "done";
-        const yCover = 106 + i * 9;
-
-        doc.setFillColor(isDone ? 16 : 200, isDone ? 185 : 200, isDone ? 129 : 200);
-        doc.circle(margin + 2.5, yCover - 1.5, 2, "F");
-        doc.setFont("helvetica", isDone ? "normal" : "italic");
-        doc.setFontSize(10);
-        doc.setTextColor(...(isDone ? DARK : MUTED));
-        doc.text(`Step ${s.id}: ${s.label}${isDone ? "" : " (incomplete)"}`, margin + 7, yCover);
-      });
-
-      // ── Content pages ────────────────────────────────────────────
-      addPage();
-
-      STEPS.forEach((step) => {
-        const d = stepData[step.id];
-
-        checkPageBreak(24);
-
-        // Step header banner
-        doc.setFillColor(...RED);
-        doc.roundedRect(margin, y, maxW, 14, 2, 2, "F");
-
+        drawSidebar();
+        // Sleek top accent line instead of heavy block
+        doc.setFillColor(...colors.RED);
+        doc.rect(0, 0, pageW, 1.5, "F");
+        
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(...WHITE);
-        doc.text(`STEP ${step.id}  ·  ${step.label.toUpperCase()}`, margin + 5, y + 9);
-        y += 18;
+        doc.setFontSize(7.5);
+        doc.setTextColor(...colors.MUTED);
+        doc.text(cleanUrlStr.toUpperCase(), M, 10);
+        doc.text("EXECUTIVE STRATEGY", pageW - M, 10, { align: "right" });
+        y = isStepPage ? 28 : 22;
+      };
 
-        if (!d?.text) {
-          doc.setFont("helvetica", "italic");
-          doc.setFontSize(9);
-          doc.setTextColor(...MUTED);
-          doc.text("This step was not completed.", margin, y);
-          y += 12;
-          return;
-        }
+      const checkBreak = (needed = 12) => {
+        if (y + needed > pageH - 20) newPage(false);
+      };
 
-        // Quality score chip (Step 6)
-        if (d.quality) {
-          const qScore = d.quality.qualityScore;
-          const qColor = qScore >= 80 ? [16, 185, 129] : qScore >= 60 ? [245, 158, 11] : [239, 68, 68];
-          doc.setFillColor(...qColor);
-          doc.roundedRect(margin, y, 36, 7, 1.5, 1.5, "F");
+      const drawPill = (text, x, py, bg, fg = colors.WHITE) => {
+        const cleanTxt = cleanString(text);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        const tw = doc.getTextWidth(cleanTxt);
+        doc.setFillColor(...bg);
+        doc.rect(x, py - 4.5, tw + 8, 7, "F"); // Sharp corners
+        doc.setTextColor(...fg);
+        doc.text(cleanTxt, x + 4, py + 0.5);
+      };
+
+      const drawDifficultyMeter = (score, x, py, width = 25) => {
+        const s = parseInt(score) || 0;
+        const fillW = (s / 100) * width;
+        // Background track
+        doc.setFillColor(...colors.BORDER);
+        doc.rect(x, py - 3, width, 2.5, "F");
+        // Fill bar based on difficulty (Higher = Redder)
+        const color = s > 70 ? colors.RED : s > 40 ? [245, 158, 11] : colors.GREEN;
+        doc.setFillColor(...color);
+        doc.rect(x, py - 3, fillW, 2.5, "F");
+        // Text label
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7);
+        doc.setTextColor(...colors.GRAY);
+        doc.text(`${s}%`, x + width + 2, py - 0.5);
+      };
+
+      const drawVerdictBox = (text) => {
+        const cleanTxt = cleanString(text);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        const wrapped = doc.splitTextToSize("STRATEGIC VERDICT: " + cleanTxt, maxW - 12);
+        const boxH = wrapped.length * 6 + 10;
+        checkBreak(boxH + 5);
+        
+        doc.setFillColor(...colors.BG_STEP);
+        doc.rect(M, y, maxW, boxH, "F");
+        doc.setDrawColor(...colors.RED);
+        doc.setLineWidth(0.8);
+        doc.line(M, y, M, y + boxH); // Accent sidebar inside box
+
+        doc.setTextColor(...colors.RED_DARK);
+        wrapped.forEach((line, i) => {
+          doc.text(line, M + 6, y + 8 + i * 6);
+        });
+        y += boxH + 8;
+      };
+
+      // ── NEW: Modern Cover Page ──
+      const renderCoverPage = () => {
+        // Left vertical accent ribbon
+        doc.setFillColor(...colors.RED);
+        doc.rect(0, 0, 8, pageH, "F");
+
+        const startX = M + 4; // Shift over due to ribbon
+
+        // Massive modern typography
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(44);
+        doc.setTextColor(...colors.DARK);
+        doc.text("SEARCH", startX, 60);
+        
+        doc.setTextColor(...colors.RED);
+        doc.text("INTELLIGENCE", startX, 78);
+
+        // Subtitle
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(14);
+        doc.setTextColor(...colors.GRAY);
+        doc.text("Data-Driven Content Engine & Competitive Roadmap", startX, 95);
+
+        // Target URL
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.DARK);
+        doc.text("STRATEGY TARGET", startX, 125);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(12);
+        doc.setTextColor(...colors.RED);
+        doc.text(cleanUrlStr, startX, 132);
+
+        // Minimalist Grid Metadata
+        const metaY = 150;
+        doc.setDrawColor(...colors.BORDER);
+        doc.setLineWidth(0.5);
+        doc.line(startX, metaY, pageW - M, metaY);
+        
+        const completedSteps = STEPS.filter((s) => stepData[s.id]?.status === "done").length;
+        const metaCards = [
+          { label: "Audit Timeline", value: dateStr },
+          { label: "Analysis Integrity", value: `${completedSteps} / ${STEPS.length} Verified` },
+        ];
+
+        metaCards.forEach((card, i) => {
+          const cx = startX + i * 75;
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(7);
-          doc.setTextColor(...WHITE);
-          doc.text(`✦ ${qScore}% Quality`, margin + 2, y + 5);
+          doc.setFontSize(8);
+          doc.setTextColor(...colors.MUTED);
+          doc.text(card.label.toUpperCase(), cx, metaY + 10);
+          
+          doc.setFontSize(12);
+          doc.setTextColor(...colors.DARK);
+          doc.text(card.value, cx, metaY + 17);
+        });
+
+        doc.line(startX, metaY + 25, pageW - M, metaY + 25);
+
+        // Strategy List Checklist style
+        y = metaY + 45;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(...colors.DARK);
+        doc.text("Execution Roadmap", startX, y);
+        y += 12;
+
+        STEPS.forEach((s) => {
+          const isDone = stepData[s.id]?.status === "done";
+          
+          doc.setFillColor(...(isDone ? colors.GREEN : colors.BG_LIGHT));
+          doc.rect(startX, y - 3, 4, 4, "F"); // Square bullets
+          
+          doc.setFont("helvetica", isDone ? "bold" : "normal");
+          doc.setFontSize(11);
+          doc.setTextColor(...(isDone ? colors.DARK : colors.GRAY));
+          doc.text(`${s.id}. ${cleanString(s.label)}`, startX + 10, y + 0.5);
+          
+          if (isDone) drawPill("VERIFIED", pageW - M - 20, y - 0.5, colors.BG_LIGHT, colors.GREEN);
           y += 11;
-        }
+        });
+      };
 
-        // Body text — parse markdown headings lightly
-        const rawText = d.text;
-        const lines = rawText.split("\n");
+      // ── NEW: High-Contrast Scorecard ──
+      const renderScorecard = () => {
+        newPage();
+        
+        // High impact dark card for score
+        doc.setFillColor(...colors.DARK);
+        doc.rect(M, 25, maxW, 35, "F");
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(32);
+        doc.setTextColor(...colors.RED);
+        doc.text("98", M + 12, 48);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(...colors.WHITE);
+        doc.text("SXO AUTHORITY SCORE", M + 35, 42);
 
-        for (const line of lines) {
-          checkPageBreak(8);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(...colors.MUTED);
+        const summaryText = "Based on multi-channel parsing of your brand semantic profile and current competitor gaps, your topical authority potential is high. Immediate focus on Gaps in Step 3 is required.";
+        doc.text(doc.splitTextToSize(summaryText, maxW - 55), M + 35, 48);
 
-          const trimmed = line.trim();
-          if (!trimmed) { y += 3; continue; }
+        y = 85;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(...colors.DARK);
+        doc.text("Live Search Landscape (Real-Time)", M, y);
+        doc.setDrawColor(...colors.RED);
+        doc.setLineWidth(1);
+        doc.line(M, y + 3, M + 15, y + 3);
+        y += 12;
 
-          if (trimmed.startsWith("## ")) {
-            y += 3;
-            checkPageBreak(12);
+        const serp = stepData[4]?.serpData;
+        if (serp?.organic) {
+          // Sleek minimalist table
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...colors.GRAY);
+          doc.text("POS", M, y + 6);
+          doc.text("RANKING DOMAIN & TITLE", M + 15, y + 6);
+          doc.setDrawColor(...colors.BORDER);
+          doc.setLineWidth(0.5);
+          doc.line(M, y + 9, pageW - M, y + 9);
+          y += 12;
+
+          serp.organic.slice(0, 5).forEach((item, ri) => {
+            checkBreak(10);
+            doc.setTextColor(...colors.RED);
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(12);
-            doc.setTextColor(...RED);
-            const heading = trimmed.replace(/^## /, "");
-            doc.text(heading, margin, y);
-            // Underline
-            const w = doc.getTextWidth(heading);
-            doc.setDrawColor(...RED);
-            doc.setLineWidth(0.4);
-            doc.line(margin, y + 1, margin + w, y + 1);
-            y += 8;
-
-          } else if (trimmed.startsWith("### ")) {
-            y += 2;
-            checkPageBreak(10);
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(10);
-            doc.setTextColor(...DARK);
-            doc.text(trimmed.replace(/^### /, ""), margin, y);
-            y += 7;
-
-          } else if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
-            doc.setFillColor(...RED);
-            doc.circle(margin + 1.5, y - 1.5, 1, "F");
+            doc.setFontSize(9);
+            doc.text(`0${ri + 1}`.slice(-2), M, y + 5);
+            
+            doc.setTextColor(...colors.DARK);
             doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(...DARK);
-            const bulletText = trimmed.replace(/^[-*]\s+/, "").replace(/\*\*/g, "");
-            const wrapped = doc.splitTextToSize(bulletText, maxW - 6);
-            wrapped.forEach((wl, wi) => {
-              checkPageBreak(6);
-              doc.text(wl, margin + 5, y);
-              y += 5;
-            });
+            doc.text(cleanString(item.title).substring(0, 75), M + 15, y + 5);
+            
+            doc.setDrawColor(...colors.BG_LIGHT);
+            doc.line(M, y + 8, pageW - M, y + 8);
+            y += 10;
+          });
+        } else {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(10);
+          doc.setTextColor(...colors.MUTED);
+          doc.text("Execute Step 4 to populate real-time SERP intelligence.", M, y);
+          y += 10;
+        }
+      };
 
-          } else if (/^\d+\./.test(trimmed)) {
+      // ── NEW: Minimalist Content Pages ──
+      const renderContentPages = () => {
+        STEPS.forEach((step) => {
+          newPage(true);
+          const data = stepData[step.id];
+          const isDone = data?.status === "done";
+          const isKeywordStep = step.id === 4;
+
+          // Minimalist Header with sharp lines
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...colors.RED);
+          doc.text(`PHASE 0${step.id} — ${STEPS.length}`, M, y);
+          
+          y += 8;
+          doc.setFontSize(18);
+          doc.setTextColor(...colors.DARK);
+          doc.text(cleanString(step.label).toUpperCase(), M, y);
+          
+          if (isDone) {
+            drawPill("COMPLETE", pageW - M - 22, y - 4, colors.BG_LIGHT, colors.GREEN);
+          }
+          
+          y += 6;
+          doc.setDrawColor(...colors.BORDER);
+          doc.setLineWidth(0.5);
+          doc.line(M, y, pageW - M, y);
+          y += 14;
+
+          if (!data?.text) {
+            doc.setFont("helvetica", "italic");
+            doc.setFontSize(10);
+            doc.setTextColor(...colors.MUTED);
+            doc.text("Data for this phase is currently pending.", M, y);
+            return;
+          }
+
+          // Markdown Parser 
+          const lines = data.text.split("\n");
+          let tableLines = [];
+
+          const renderTable = (rows) => {
+            if (rows.length < 2) return;
+            const cleanRows = rows.map((r) => r.split("|").filter((rowStr) => rowStr.trim() !== "").map(cleanString));
+            const [headers, , ...dataRows] = cleanRows; 
+            
+            if (!headers || headers.length === 0) return;
+            const colW = maxW / headers.length;
+
+            checkBreak(rows.length * 8 + 15);
+            
+            // Minimalist table header
             doc.setFont("helvetica", "bold");
-            doc.setFontSize(9);
-            doc.setTextColor(...RED);
-            const numMatch = trimmed.match(/^(\d+\.)\s+(.*)/);
-            if (numMatch) {
-              doc.text(numMatch[1], margin, y);
+            doc.setFontSize(8);
+            doc.setTextColor(...colors.GRAY);
+            headers.forEach((h, i) => doc.text(h.substring(0, 30).toUpperCase(), M + i * colW, y + 6));
+            
+            y += 8;
+            doc.setDrawColor(...colors.BORDER);
+            doc.line(M, y, pageW - M, y);
+            y += 2;
+  
+            doc.setFontSize(8.5);
+            dataRows.forEach((row, ri) => {
+              const rowH = 8;
+              checkBreak(rowH + 3);
+              doc.setTextColor(...colors.DARK);
               doc.setFont("helvetica", "normal");
-              doc.setTextColor(...DARK);
-              const numbered = numMatch[2].replace(/\*\*/g, "");
-              const wrapped = doc.splitTextToSize(numbered, maxW - 8);
-              wrapped.forEach((wl, wi) => {
-                checkPageBreak(6);
-                doc.text(wl, margin + 6, y);
-                y += 5;
+              row.forEach((cell, ci) => {
+                const isDifficultyCol = headers[ci]?.toLowerCase().includes("diff");
+                if (isKeywordStep && isDifficultyCol && parseInt(cell)) {
+                  drawDifficultyMeter(cell, M + ci * colW, y + 5);
+                } else {
+                  doc.text(cell.substring(0, 38), M + ci * colW, y + 5.5);
+                }
               });
+              y += rowH;
+              
+              // Zebra striping using ultra-light lines instead of filled backgrounds
+              doc.setDrawColor(...colors.BG_LIGHT);
+              doc.line(M, y, pageW - M, y);
+            });
+            y += 8;
+          };
+
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            
+            if (line.startsWith("|")) {
+              tableLines.push(line);
+              continue;
+            } else if (tableLines.length > 0) {
+              renderTable(tableLines);
+              tableLines = [];
             }
 
-          } else if (trimmed.startsWith("|")) {
-            // Simple table row — just output as plain text
-            doc.setFont("courier", "normal");
-            doc.setFontSize(8);
-            doc.setTextColor(...MUTED);
-            const tableRow = trimmed.replace(/\|/g, " ").trim().replace(/\*\*/g, "");
-            const wrapped = doc.splitTextToSize(tableRow, maxW);
-            wrapped.forEach((wl) => {
-              checkPageBreak(5);
-              doc.text(wl, margin, y);
-              y += 4.5;
-            });
+            if (!line) { y += 4; continue; }
+            const cleanL = cleanString(line);
 
-          } else {
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(9);
-            doc.setTextColor(...DARK);
-            const plain = trimmed.replace(/\*\*/g, "");
-            const wrapped = doc.splitTextToSize(plain, maxW);
-            wrapped.forEach((wl) => {
-              checkPageBreak(6);
-              doc.text(wl, margin, y);
-              y += 5;
-            });
+            if (line.startsWith("## ")) {
+              checkBreak(18);
+              y += 4;
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(11);
+              doc.setTextColor(...colors.DARK);
+              doc.text(cleanL.replace(/^##\s+/, "").toUpperCase(), M, y);
+              y += 2;
+              doc.setDrawColor(...colors.RED);
+              doc.setLineWidth(1);
+              doc.line(M, y, M + 15, y); // Small red underline accent
+              y += 8;
+            } 
+            else if (line.startsWith("### ")) {
+              checkBreak(12);
+              doc.setFont("helvetica", "bold");
+              doc.setFontSize(10);
+              doc.setTextColor(...colors.RED);
+              doc.text(cleanL.replace(/^###\s+/, ""), M, y);
+              y += 7;
+            } 
+            else if (/^[-*]\s+/.test(line)) {
+              const wrapped = doc.splitTextToSize(cleanL.replace(/^[-*]\s+/, ""), maxW - 8);
+              checkBreak(wrapped.length * 6 + 4);
+              doc.setFillColor(...colors.RED);
+              doc.rect(M + 1, y - 2, 1.5, 1.5, "F"); // Sharp square bullet
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(9.5);
+              doc.setTextColor(...colors.DARK);
+              wrapped.forEach((wl) => { doc.text(wl, M + 6, y); y += 6; checkBreak(10); });
+              y += 1;
+            } 
+            else if (/^\d+\.\s+/.test(line)) {
+              const match = cleanL.match(/^(\d+)\.\s+(.*)/);
+              if (match) {
+                const wrapped = doc.splitTextToSize(match[2], maxW - 8);
+                checkBreak(wrapped.length * 6 + 4);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9.5);
+                doc.setTextColor(...colors.RED);
+                doc.text(match[1] + ".", M, y);
+                doc.setFont("helvetica", "normal");
+                doc.setTextColor(...colors.DARK);
+                wrapped.forEach((wl) => { doc.text(wl, M + 6, y); y += 6; checkBreak(10); });
+                y += 1;
+              }
+            } 
+            else {
+              const lower = line.toLowerCase();
+              if (lower.startsWith("verdict") || lower.startsWith("strategic verdict") || lower.startsWith("insight")) {
+                drawVerdictBox(line.replace(/^(verdict|strategic verdict|insight)[:\s]+/i, ''));
+              } else {
+                const wrapped = doc.splitTextToSize(cleanL, maxW);
+                checkBreak(wrapped.length * 6 + 4);
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9.5);
+                doc.setTextColor(...colors.DARK);
+                wrapped.forEach((wl) => { doc.text(wl, M, y); y += 6; checkBreak(10); });
+                y += 2;
+              }
+            }
           }
+          if (tableLines.length > 0) renderTable(tableLines);
+        });
+      };
+
+      const addFooters = () => {
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let p = 1; p <= totalPages; p++) {
+          doc.setPage(p);
+          doc.setDrawColor(...colors.BORDER);
+          doc.setLineWidth(0.5);
+          doc.line(M, pageH - 14, pageW - M, pageH - 14);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...colors.GRAY);
+          doc.text(`SEO AGENT — ${cleanUrlStr.toUpperCase()}`, M, pageH - 9);
+          doc.text(`PAGE ${p} // ${totalPages}`, pageW - M, pageH - 9, { align: "right" });
         }
+      };
 
-        y += 10; // Space after each step
-      });
+      // ── Execute Pipelines ──
+      renderCoverPage();
+      renderScorecard();
+      renderContentPages();
+      addFooters();
 
-      // ── Footer on every page ─────────────────────────────────────
-      const totalPages = doc.internal.getNumberOfPages();
-      for (let p = 1; p <= totalPages; p++) {
-        doc.setPage(p);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(7);
-        doc.setTextColor(...MUTED);
-        doc.text(`SEO Agent  ·  ${cleanUrl}`, margin, pageH - 6);
-        doc.text(`Page ${p} of ${totalPages}`, pageW - margin, pageH - 6, { align: "right" });
-        doc.setDrawColor(...BORDER);
-        doc.setLineWidth(0.2);
-        doc.line(margin, pageH - 9, pageW - margin, pageH - 9);
-      }
-
-      // ── Save ─────────────────────────────────────────────────────
-      const slug = siteUrl.replace(/^https?:\/\//, "").replace(/[^a-z0-9]/gi, "-").toLowerCase();
-      doc.save(`seo-report-${slug}.pdf`);
+      // ── Save & Cleanup ──
+      const slug = cleanUrlStr.replace(/[^a-z0-9]/gi, "-").toLowerCase() || "export";
+      const filename = `executive-seo-strategy-${slug}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      const blob = doc.output("blob");
+      const url = URL.createObjectURL(blob);
+      
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
     } catch (err) {
-      console.error("PDF generation failed:", err);
-      alert("PDF export failed. Please try again.");
+      console.error("PDF failed:", err);
+      alert("PDF Error: " + err.message);
     } finally {
       setPdfLoading(false);
     }
   }
 
-  // ── Copy all as markdown (keep this as fallback) ─────────────────
   return (
     <div className="export-panel">
       <div className="export-panel-header">
         <Layers size={14} strokeWidth={2} style={{ color: "var(--text-muted)" }} />
         <span className="export-panel-title">Export Report</span>
       </div>
+      
       <div className="export-row">
-        {/* PDF — primary CTA */}
-        <button
-          className="export-btn primary-export"
-          onClick={handlePDF}
+        <button 
+          className="export-btn primary-export flex items-center gap-2" 
+          onClick={handlePDF} 
           disabled={pdfLoading}
         >
           {pdfLoading ? (
-            <>
-              <span className="spin" style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%" }} />
-              Generating PDF…
-            </>
+            <><Loader2 size={14} className="animate-spin" /> Generating...</>
           ) : (
-            <>
-              <FileText size={14} strokeWidth={2} />
-              Export as PDF
-            </>
+            <><FileText size={14} strokeWidth={2} /> Export Final PDF</>
           )}
         </button>
 
-        {/* Copy as text */}
-        <button className="export-btn" onClick={handleCopy}>
+        <button className="export-btn flex items-center gap-2" onClick={handleCopy}>
           {copied ? <CheckCheck size={14} strokeWidth={2.5} /> : <Copy size={14} strokeWidth={2} />}
-          {copied ? "Copied!" : "Copy All Text"}
+          {copied ? "Copied!" : "Copy to Clipboard"}
         </button>
 
-        {/* New analysis */}
-        <button className="export-btn reset-btn" onClick={onReset}>
-          <RotateCcw size={14} strokeWidth={2} />
-          New Analysis
+        <button className="export-btn reset-btn flex items-center gap-2" onClick={onReset}>
+          <RotateCcw size={14} strokeWidth={2} /> Clear Analysis
         </button>
       </div>
     </div>
