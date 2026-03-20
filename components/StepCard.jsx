@@ -8,6 +8,7 @@ import { ICON_MAP } from "@/lib/iconMap";
 import MarkdownContent from "./MarkdownContent";
 import LoadingIndicator from "./LoadingIndicator";
 import GateInput from "./GateInput";
+import SerpInsights from "./SerpInsights";
 
 export default function StepCard({ step, data, onRetry }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -158,6 +159,7 @@ export default function StepCard({ step, data, onRetry }) {
       {!collapsed && (
         <div className="sc-body">
           {data.text && <MarkdownContent text={data.text} />}
+          {data.serpData && <SerpInsights data={data.serpData} />}
           {data.error && (
             <div className="sc-error-box">
               <AlertCircle size={14} />

@@ -237,10 +237,20 @@ export function useSEOWorkflow() {
     patchStep(3, { gate: null, status: "done" });
     patchStep(4, { status: "loading" });
     try {
-      const d4 = await callSEO(PROMPT_STEP4(topicChoice));
+      // Run SERP Analysis and Keyword Research SEO Call in parallel
+      const [d4, serpRes] = await Promise.all([
+        callSEO(PROMPT_STEP4(topicChoice)),
+        fetch("/api/serp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: topicChoice }),
+        }).then(res => res.json()).catch(() => null)
+      ]);
+
       patchStep(4, {
         status: "waiting",
         text: d4.text,
+        serpData: serpRes && !serpRes.error ? serpRes : null,
         canRetry: false,
         gate: {
           type: "text",

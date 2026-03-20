@@ -7,7 +7,7 @@ import HeroSection from "@/components/HeroSection";
 import StepTracker from "@/components/StepTracker";
 import StepCard from "@/components/StepCard";
 import ExportActions from "@/components/ExportActions";
-import Footer from "@/components/Footer";
+// import Footer from "@/components/Footer";
 
 export default function Page() {
   const {
@@ -112,7 +112,7 @@ export default function Page() {
         </div>
       </main>
 
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 }

@@ -57,7 +57,7 @@ export default function TopicSelector({ text, onSubmit }) {
   if (topics.length === 0) {
     // Fallback: plain text input if parsing fails
     return (
-      <form className="gate-form" onSubmit={handleManual}>
+      <form className="gate-row" onSubmit={handleManual}>
         <input
           className="gate-input"
           value={manualInput}
@@ -65,7 +65,7 @@ export default function TopicSelector({ text, onSubmit }) {
           placeholder="Enter topic number or paste title…"
           autoFocus
         />
-        <button className="gate-submit" type="submit">
+        <button className="btn-gate" type="submit">
           Proceed <ChevronRight size={14} />
         </button>
       </form>
@@ -99,14 +99,14 @@ export default function TopicSelector({ text, onSubmit }) {
           );
         })}
       </div>
-      <form className="gate-form topic-manual" onSubmit={handleManual}>
+      <form className="gate-row mt-4" onSubmit={handleManual}>
         <input
           className="gate-input"
           value={manualInput}
           onChange={(e) => setManualInput(e.target.value)}
           placeholder="Or type a custom topic…"
         />
-        <button className="gate-submit" type="submit" disabled={!manualInput.trim()}>
+        <button className="btn-gate" type="submit" disabled={!manualInput.trim()}>
           Use Custom <ChevronRight size={14} />
         </button>
       </form>
