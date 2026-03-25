@@ -12,13 +12,13 @@ import {
 } from "lucide-react";
 
 const FEATURES = [
-  "Website Analysis",
+  "Live Brand Scraping",
   "Competitor Research",
+  "Audit Recommendations",
   "10 Topic Ideas",
   "Keyword Research",
   "Full Blog Post",
   "SEO Meta Tags",
-
 ];
 
 const PROVIDERS = [
