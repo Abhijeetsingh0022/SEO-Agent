@@ -46,6 +46,8 @@ export default function HeroSection({
   keyProducts, setKeyProducts,
   targetAudience, setTargetAudience
 }) {
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   function handleKey(e) {
     if (e.key === "Enter") onStart();
   }
@@ -113,9 +115,9 @@ export default function HeroSection({
           <p className="input-card-sub">AI analyzes brand tone, detects SEO gaps & unlocks opportunities</p>
         </div>
 
-        <div className="input-grid">
+        <div className="input-flex-stack">
           {/* Website URL */}
-          <div className="input-group full">
+          <div className="input-group">
             <label className="field-label" htmlFor="site-url">Website URL <span className="text-red">*</span></label>
             <div className="input-row">
               <div className="input-wrapper">
@@ -134,47 +136,67 @@ export default function HeroSection({
             </div>
           </div>
 
-          {/* Business Category */}
-          <div className="input-group">
-            <label className="field-label">Business Category</label>
-            <div className="input-wrapper">
-              <Tag size={16} className="input-icon-left" />
-              <input
-                className="context-input"
-                value={businessCategory}
-                onChange={(e) => setBusinessCategory(e.target.value)}
-                placeholder="e.g. Skincare, Jewellery, Fashion"
+          <div className="advanced-toggle-wrap">
+            <button 
+              className="advanced-toggle-btn"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? "Hide Advanced Targeting" : "Add Advanced Targeting (Optional)"}
+              <ChevronRight 
+                size={14} 
+                style={{ 
+                  transform: showAdvanced ? "rotate(90deg)" : "rotate(0deg)", 
+                  transition: "transform 0.2s" 
+                }} 
               />
-            </div>
+            </button>
           </div>
 
-          {/* Key Products */}
-          <div className="input-group">
-            <label className="field-label">Key Products</label>
-            <div className="input-wrapper">
-              <Package size={16} className="input-icon-left" />
-              <input
-                className="context-input"
-                value={keyProducts}
-                onChange={(e) => setKeyProducts(e.target.value)}
-                placeholder="e.g. Face serums, Gold rings"
-              />
-            </div>
-          </div>
+          {showAdvanced && (
+            <div className="advanced-inputs-stack">
+              {/* Business Category */}
+              <div className="input-group">
+                <label className="field-label">Business Category</label>
+                <div className="input-wrapper">
+                  <Tag size={16} className="input-icon-left" />
+                  <input
+                    className="context-input"
+                    value={businessCategory}
+                    onChange={(e) => setBusinessCategory(e.target.value)}
+                    placeholder="e.g. Skincare, Jewellery, SaaS..."
+                  />
+                </div>
+              </div>
 
-          {/* Target Audience */}
-          <div className="input-group full">
-            <label className="field-label">Target Audience</label>
-            <div className="input-wrapper">
-              <Users size={16} className="input-icon-left" />
-              <input
-                className="context-input"
-                value={targetAudience}
-                onChange={(e) => setTargetAudience(e.target.value)}
-                placeholder="e.g. Women 25-40, Tech professionals..."
-              />
+              {/* Key Products */}
+              <div className="input-group">
+                <label className="field-label">Key Products or Services</label>
+                <div className="input-wrapper">
+                  <Package size={16} className="input-icon-left" />
+                  <input
+                    className="context-input"
+                    value={keyProducts}
+                    onChange={(e) => setKeyProducts(e.target.value)}
+                    placeholder="e.g. Face serums, API software..."
+                  />
+                </div>
+              </div>
+
+              {/* Target Audience */}
+              <div className="input-group">
+                <label className="field-label">Target Audience</label>
+                <div className="input-wrapper">
+                  <Users size={16} className="input-icon-left" />
+                  <input
+                    className="context-input"
+                    value={targetAudience}
+                    onChange={(e) => setTargetAudience(e.target.value)}
+                    placeholder="e.g. Women 25-40, Enterprise Developers..."
+                  />
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="input-group action-group">
             <button className="btn-primary start-btn" onClick={onStart} disabled={!url.trim()}>

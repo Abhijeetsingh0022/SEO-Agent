@@ -9,6 +9,8 @@ import MarkdownContent from "./MarkdownContent";
 import LoadingIndicator from "./LoadingIndicator";
 import GateInput from "./GateInput";
 import SerpInsights from "./SerpInsights";
+import KeywordGrid from "./KeywordGrid";
+import CompetitorGrid from "./CompetitorGrid";
 
 export default function StepCard({ step, data, onRetry, onGateSubmit }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -172,7 +174,13 @@ export default function StepCard({ step, data, onRetry, onGateSubmit }) {
             </div>
           )}
 
-          {data.text && <MarkdownContent text={data.text} />}
+          {step.id === 2 && data.text ? (
+            <CompetitorGrid text={data.text} />
+          ) : step.id === 4 && data.text ? (
+            <KeywordGrid text={data.text} />
+          ) : (
+            data.text && <MarkdownContent text={data.text} />
+          )}
           {data.serpData && <SerpInsights data={data.serpData} />}
           {data.gate && (
             <div className="sc-gate-wrap">

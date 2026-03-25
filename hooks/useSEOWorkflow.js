@@ -339,9 +339,9 @@ export function useSEOWorkflow() {
     if (!text) return [];
     try {
       if (stepId === 2) {
-        // From Competitor Analysis, extract 3 topic gaps
-        const gaps = text.match(/Gap \d+: (.*?)(?:\n|$)/gi) || [];
-        return gaps.map(g => g.replace(/Gap \d+: /i, '').split(':')[0].trim()).slice(0, 3);
+        // From Competitor Analysis, extract up to 3 Example Blog Ideas
+        const matches = text.match(/(?:💡\s*)?\*{0,2}Example blog idea:\*{0,2}\s*"?(.*?)"?(?:\n|$)/gi) || [];
+        return matches.map(m => m.replace(/^(?:.*?)(?:Example blog idea:\*{0,2})\s*"?(.*?)"?(?:\n|$)/i, '$1').trim()).slice(0, 3);
       }
       if (stepId === 4) {
         // From Keyword Research, extract top 3 keywords – Flexible matching
@@ -416,11 +416,13 @@ export function useSEOWorkflow() {
     stepInputsRef.current[2] = {};
     patchStep(2, { status: "loading" });
     try {
+      const currentYear = new Date().getFullYear();
+      const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
       // Fetch Live Competitors + Future-Looking Content via SERP API (no cache for freshness)
       const serpRes = await fetch("/api/serp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `top competitor blog posts 2025 2026 trending for ${siteUrl}` }),
+        body: JSON.stringify({ query: `top competitor blog posts ${currentMonth} ${currentYear} trending for ${siteUrl}` }),
       }).then(res => res.json()).catch(() => null);
 
       const liveOrganic = serpRes && !serpRes.error ? (serpRes.organic || []) : [];
