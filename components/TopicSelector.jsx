@@ -74,8 +74,8 @@ export default function TopicSelector({ text, onSubmit }) {
 
   return (
     <div className="topic-selector">
-      <p className="topic-selector-hint">Select a topic to continue — or type one below</p>
-      <div className="topic-grid">
+      <p className="topic-selector-hint">Select a strategic pillar or type a custom topic below</p>
+      <div className="topic-list">
         {topics.map((topic) => {
           const compColor =
             topic.competition === "low" ? "#10B981" :

@@ -36,9 +36,12 @@ export default function KeywordGrid({ text }) {
     const intent = block.match(/Search Intent:\s*(.*)/i)?.[1]?.trim();
     const pot = block.match(/Position Potential:\s*(.*)/i)?.[1]?.trim();
     const diff = block.match(/Difficulty Score:\s*(.*)/i)?.[1]?.trim();
+    const funnel = block.match(/Funnel Stage:\s*(.*)/i)?.[1]?.trim();
+    const aiEligible = block.match(/AI Overview Eligibility:\s*(.*)/i)?.[1]?.trim();
+    const note = block.match(/March 2026 Opportunity Note:\s*(.*)/i)?.[1]?.trim();
 
     if (!kw) return null;
-    return { kw, intent, pot, diff };
+    return { kw, intent, pot, diff, funnel, aiEligible, note };
   }).filter(Boolean);
 
   if (keywords.length === 0) return null;
@@ -81,7 +84,14 @@ export default function KeywordGrid({ text }) {
                 <div className="kl-intent-badge" style={{ color: intentCfg.color }}>
                   <IntentIcon size={12} strokeWidth={2.5} />
                   <span>{k.intent}</span>
+                  {k.funnel && (
+                    <>
+                      <span className="kl-dot-sep">•</span>
+                      <span className="kl-funnel">{k.funnel}</span>
+                    </>
+                  )}
                 </div>
+                {k.note && <div className="kl-note-bar">{k.note}</div>}
               </div>
 
               <div className="kl-metrics-col">
@@ -91,6 +101,12 @@ export default function KeywordGrid({ text }) {
                     {k.diff}<span className="kl-m-sub">/100</span>
                   </span>
                 </div>
+                {k.aiEligible && (
+                  <div className="kl-metric kl-ai-tag" data-eligible={k.aiEligible.toLowerCase().includes('yes')}>
+                    <Zap size={11} />
+                    <span>AI Overview</span>
+                  </div>
+                )}
                 <div className="kl-metric">
                   <span className="kl-m-label">Potential</span>
                   <span className="kl-m-val" style={{ color: k.pot?.toLowerCase().includes('high') ? 'var(--brand)' : 'var(--text-secondary)' }}>

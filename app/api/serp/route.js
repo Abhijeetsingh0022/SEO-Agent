@@ -4,14 +4,17 @@ import * as cheerio from 'cheerio';
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { query } = body;
+    const { query, time } = body; // time can be 'w', 'm', 'd', 'y'
 
     if (!query) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 });
     }
 
     // Call DuckDuckGo HTML directly (Free & Keyless)
-    const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+    let url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    if (time) url += `&df=${time}`;
+
+    const response = await fetch(url, {
       cache: 'no-store', // Force Vercel/Next to not cache this fetch
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',

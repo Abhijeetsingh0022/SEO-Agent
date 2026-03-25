@@ -14,11 +14,7 @@ export default function SerpInsights({ data }) {
           <Search size={16} strokeWidth={2.5} />
         </div>
         <div className="serp-header-text">
-          <h3 className="serp-title">Advanced Search Intelligence</h3>
           <div className="serp-meta-labels">
-            <span className="serp-intent-badge">
-              <Target size={10} /> {intent}
-            </span>
             {data.mock && (
               <span className="serp-mock-badge">
                 Developer Sandbox
@@ -28,42 +24,11 @@ export default function SerpInsights({ data }) {
         </div>
       </div>
 
-      <div className="serp-advanced-stats">
-        <div className="serp-stat">
-          <div className="serp-stat-icon-wrap bg-amber-dim text-amber">
-            <Zap size={13} strokeWidth={2.5} />
-          </div>
-          <div className="serp-stat-body">
-            <span className="serp-stat-label">Difficulty</span>
-            <span className="serp-stat-val">Low-Medium</span>
-          </div>
-        </div>
-        <div className="serp-stat">
-          <div className="serp-stat-icon-wrap bg-emerald-dim text-emerald">
-            <ShieldCheck size={13} strokeWidth={2.5} />
-          </div>
-          <div className="serp-stat-body">
-            <span className="serp-stat-label">Stability</span>
-            <span className="serp-stat-val">High</span>
-          </div>
-        </div>
-        <div className="serp-stat">
-          <div className="serp-stat-icon-wrap bg-blue-dim text-blue">
-            <Trophy size={13} strokeWidth={2.5} />
-          </div>
-          <div className="serp-stat-body">
-            <span className="serp-stat-label">Organic Potential</span>
-            <span className="serp-stat-val">Exceptional</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="serp-grid">
+      <div className="serp-grid" style={{ marginTop: '10px' }}>
         {/* Top Organic Results */}
         <div className="serp-panel">
           <h4 className="serp-panel-title">
             <TrendingUp size={14} style={{ color: "var(--green)" }} />
-            SERP Ranking Landscape
           </h4>
           <ul className="serp-org-list">
             {data.organic?.slice(0, 3).map((item, i) => (
