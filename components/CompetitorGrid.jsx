@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { Copy, Target, Flame, Lightbulb, ChevronRight, CheckCircle2, Bookmark } from "lucide-react";
 

@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState } from "react";
 import { 
   Target, BarChart3, Zap, TrendingUp, Search,
