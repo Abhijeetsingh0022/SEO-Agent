@@ -285,19 +285,53 @@ export function useSEOWorkflow() {
   // Helper to extract keywords from Step 4 text safely
   function extractKeywords(text) {
     if (!text) return [];
-    
-    // Primary extraction based on new strict layout: **Target Keyword:** [keyword]
-    const matches = Array.from(text.matchAll(/\*\*Target Keyword:\*\*\s*(.+)/gi));
-    if (matches.length > 0) {
-      return matches.map(m => m[1].replace(/\*\*/g, '').trim()).filter(Boolean).slice(0, 10);
+
+    // Validator: must look like a real search phrase, not metadata
+    const isValidKeyword = (kw) => {
+      if (!kw || kw.length < 4 || kw.length > 120) return false;
+      // Reject metadata values the AI embeds in the format block
+      if (/^(high|med|medium|low|yes|no)$/i.test(kw)) return false;
+      if (/^\d{1,3}$/.test(kw)) return false; // plain numbers like "75"
+      if (/problem.aware|solution.aware|purchase.intent|informational|navigational|transactional|commercial/i.test(kw)) return false;
+      if (/^(\*\*|##|--|\[|\()/.test(kw)) return false; // starts with markdown
+      // Must contain at least one real word (letters)
+      if (!/[a-zA-Z]{2,}/.test(kw)) return false;
+      return true;
+    };
+
+    // Strategy 1: Match bold format -> **Target Keyword:** value
+    const boldMatches = Array.from(text.matchAll(/\*\*\s*Target Keyword\s*:\s*\*\*\s*(.+)/gi));
+    if (boldMatches.length > 0) {
+      const results = boldMatches
+        .map(m => m[1].replace(/\*\*/g, '').trim())
+        .filter(isValidKeyword)
+        .slice(0, 10);
+      if (results.length >= 3) return results; // Only trust if we got a reasonable count
     }
 
-    // Fallback regex if the model used a standard numbered list
-    const fallbackMatches = text.match(/(?:\d+\.\s+|\*\*)\*{0,2}(.*?)(?:\*\*|:|\n|$)/gi) || [];
-    return fallbackMatches
-      .map(m => m.replace(/^(?:\d+\.\s+|\*\*)\*{0,2}/, '').replace(/\*+$/, '').trim())
-      .filter(t => t.length > 2 && t.length < 100 && !/intent|potential|score|keyword/i.test(t))
-      .slice(0, 10);
+    // Strategy 2: Match plain format -> Target Keyword: value (no bold markers)
+    const plainMatches = Array.from(text.matchAll(/^\s*(?:\d+\.\s*)?Target Keyword\s*:\s*(.+)$/gim));
+    if (plainMatches.length > 0) {
+      const results = plainMatches
+        .map(m => m[1].replace(/\*\*/g, '').trim())
+        .filter(isValidKeyword)
+        .slice(0, 10);
+      if (results.length >= 3) return results;
+    }
+
+    // Strategy 3: Match numbered list items (e.g., "1. long-tail keyword phrase")
+    // Only pick up items that look like actual keyword phrases (2+ words or hyphenated)
+    const numberedMatches = Array.from(text.matchAll(/^\s*\d+\.\s+\*{0,2}([^\n*:]{8,80})\*{0,2}\s*$/gim));
+    if (numberedMatches.length > 0) {
+      const results = numberedMatches
+        .map(m => m[1].trim())
+        .filter(isValidKeyword)
+        .filter(kw => kw.split(/\s+/).length >= 2) // must be multi-word
+        .slice(0, 10);
+      if (results.length >= 3) return results;
+    }
+
+    return [];
   }
 
   // Helper to extract suggestions for the next step's gate
@@ -382,16 +416,19 @@ export function useSEOWorkflow() {
     stepInputsRef.current[2] = {};
     patchStep(2, { status: "loading" });
     try {
-      // Fetch Live Competitors via SERP API
+      // Fetch Live Competitors + Future-Looking Content via SERP API (no cache for freshness)
       const serpRes = await fetch("/api/serp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: `top organic search competitors for ${siteUrl}` }),
+        body: JSON.stringify({ query: `top competitor blog posts 2025 2026 trending for ${siteUrl}` }),
       }).then(res => res.json()).catch(() => null);
 
-      const serpDataStr = serpRes && !serpRes.error ? JSON.stringify(serpRes.results || serpRes) : "";
-      const d2 = await callSEO(PROMPT_STEP2(serpDataStr));
-      patchStep(2, { status: "done", text: d2.text, canRetry: false });
+      const liveOrganic = serpRes && !serpRes.error ? (serpRes.organic || []) : [];
+      const serpDataStr = liveOrganic.length > 0 ? JSON.stringify(liveOrganic) : "";
+
+      // FIX: Save serpData to state so Step 3 can read real competitor URLs
+      const d2 = await callSEO(PROMPT_STEP2(serpDataStr), 4096, true); // noCache=true for freshness
+      patchStep(2, { status: "done", text: d2.text, serpData: serpRes, canRetry: false });
     } catch (e) {
       patchStep(2, { status: "error", error: e.message, canRetry: true });
     }
@@ -401,10 +438,13 @@ export function useSEOWorkflow() {
     stepInputsRef.current[3] = {};
     patchStep(3, { status: "loading" });
     try {
+      // FIX: Read from the serpData key that runStep2 now saves to state
       const rivalsData = stepData[2]?.serpData?.organic || [];
-      const rivalsStr = rivalsData.map(r => `${r.title} (${r.link})`).join(", ");
+      const rivalsStr = rivalsData.length > 0
+        ? rivalsData.map(r => `${r.title} (${r.link})`).join("\n")
+        : "(No live competitor data — generate topics based on niche context and 2025-2026 trends)";
 
-      const d3 = await callSEO(PROMPT_STEP3(rivalsStr));
+      const d3 = await callSEO(PROMPT_STEP3(rivalsStr), 4096, true); // noCache=true
       patchStep(3, {
         status: "waiting",
         text: d3.text,
@@ -429,20 +469,21 @@ export function useSEOWorkflow() {
     patchStep(3, { gate: null, status: "done" });
     patchStep(4, { status: "loading" });
     try {
-      // Fetch SERP Data exactly for the topic to ground the keyword research
+      // Fetch SERP Data for topic WITHOUT year suffix (year in query skews intent toward listicles)
+      // Year context is injected via the AI prompt instead
       const serpRes = await fetch("/api/serp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: resolvedTopic }),
       }).then(res => res.json()).catch(() => null);
 
-      const serpDataStr = serpRes && !serpRes.error ? JSON.stringify(serpRes.organic || serpRes.results || serpRes) : "";
-      
+      const serpDataStr = serpRes && !serpRes.error ? JSON.stringify(serpRes.organic || []) : "";
+
       // Save it so retryStep has it
       stepInputsRef.current[4].serpDataStr = serpDataStr;
 
-      // Call AI with real-time SERP context for highly accurate targeting
-      const d4 = await callSEO(PROMPT_STEP4(resolvedTopic, serpDataStr));
+      // Call AI with real-time SERP context for highly accurate targeting (noCache=true)
+      const d4 = await callSEO(PROMPT_STEP4(resolvedTopic, serpDataStr), 4096, true);
 
       const keywords = extractKeywords(d4.text);
       if (keywords.length > 0) {

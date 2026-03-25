@@ -447,6 +447,117 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Session stats row under site name ── */
+.nav-session-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.nav-stat {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.nav-stat-val {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.nav-stat-label {
+  font-weight: 400;
+}
+
+.nav-stat-divider {
+  color: var(--border-md);
+  font-size: 14px;
+}
+
+/* ── Progress bar under header ── */
+.nav-progress-bar-wrap {
+  height: 4px;
+  background: var(--bg-surface);
+  border-radius: 100px;
+  overflow: hidden;
+  margin: -16px 0 8px;
+}
+
+.nav-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green) 0%, #34d399 100%);
+  border-radius: 100px;
+  transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Nav item icon area ── */
+.nav-item-icon-wrap {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Status icon colors ── */
+.nav-icon-done    { color: var(--green); }
+.nav-icon-loading { color: var(--blue); animation: spin 1s linear infinite; }
+.nav-icon-error   { color: var(--red); }
+.nav-icon-pending { color: var(--brand); }
+.nav-icon-idle    { color: var(--border-md); }
+
+/* ── Waiting pulse dot ── */
+.nav-dot-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f59e0b;
+  animation: pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+}
+
+/* ── Nav item content: label + meta ── */
+.nav-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.nav-item-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.nav-item-meta {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.nav-item-meta.running { color: var(--blue); }
+.nav-item-meta.waiting { color: #d97706; }
+.nav-item-meta.error   { color: var(--red); }
+
+/* ── Item states ── */
+.nav-item.done   .nav-item-label { color: var(--text-primary); }
+.nav-item.error  .nav-item-label { color: var(--red); }
+.nav-item.active { background: var(--brand-dim); }
+.nav-item.active .nav-item-label { color: var(--brand-2); }
+.nav-item.waiting { background: rgba(245,158,11,0.05); }
+.nav-item:hover   { background: var(--bg-surface); }
+
+
 .nav-item-tool {
   display: flex;
   align-items: center;

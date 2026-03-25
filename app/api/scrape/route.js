@@ -16,10 +16,14 @@ export async function POST(req) {
 
     const response = await fetch(finalUrl, {
       signal: controller.signal,
+      cache: 'no-store', // Force Vercel/Next to not cache this fetch
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Expires': '0'
       }
     });
 

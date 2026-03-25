@@ -12,9 +12,13 @@ export async function POST(req) {
 
     // Call DuckDuckGo HTML directly (Free & Keyless)
     const response = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+      cache: 'no-store', // Force Vercel/Next to not cache this fetch
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9'
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Pragma': 'no-cache',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Expires': '0'
       }
     });
 
