@@ -267,12 +267,12 @@ export function useSEOWorkflow() {
     try {
       let result;
       switch (stepId) {
-        case 1: result = await callSEO(inputs.url, 4096, true); break;
+        case 1: result = await callSEO(PROMPT_STEP1(inputs.url, inputs, inputs.scrapeContext), 4096, true); break;
         case 2: result = await callSEO(PROMPT_STEP2(), 4096, true); break;
         case 3: result = await callSEO(PROMPT_STEP3(), 4096, true); break;
-        case 4: result = await callSEO(PROMPT_STEP4(inputs.topic), 4096, true); break;
+        case 4: result = await callSEO(PROMPT_STEP4(inputs.topic, inputs.serpDataStr), 4096, true); break;
         case 5: result = await callSEO(PROMPT_STEP5(inputs.topic, inputs.kwNote), 4096, true); break;
-        case 6: result = await callSEO(PROMPT_STEP6(inputs.topic, inputs.outNote), 6000, true); break;
+        case 6: result = await callSEO(PROMPT_STEP6(inputs.topic, inputs.outNote, inputs.ragContext), 6000, true); break;
         case 7: result = await callSEO(PROMPT_STEP7(), 4096, true); break;
         default: return;
       }
@@ -282,14 +282,21 @@ export function useSEOWorkflow() {
     }
   }
 
-  // Helper to extract keywords from Step 4 text
+  // Helper to extract keywords from Step 4 text safely
   function extractKeywords(text) {
     if (!text) return [];
-    // More flexible regex: matches "1. **Keyword**", "1. Keyword", and "Target Keyword: Keyword"
-    const matches = text.match(/(?:\d+\.\s+|\*\*|Target Keyword[:\s]+)\*{0,2}(.*?)(?:\*\*|:|\n|$)/gi) || [];
-    return matches
-      .map(m => m.replace(/^(?:\d+\.\s+|\*\*|Target Keyword[:\s]+)\*{0,2}/i, '').replace(/\*+$/, '').trim())
-      .filter(t => t.length > 2 && t.length < 100 && !t.toLowerCase().includes('intent') && !t.toLowerCase().includes('potential'))
+    
+    // Primary extraction based on new strict layout: **Target Keyword:** [keyword]
+    const matches = Array.from(text.matchAll(/\*\*Target Keyword:\*\*\s*(.+)/gi));
+    if (matches.length > 0) {
+      return matches.map(m => m[1].replace(/\*\*/g, '').trim()).filter(Boolean).slice(0, 10);
+    }
+
+    // Fallback regex if the model used a standard numbered list
+    const fallbackMatches = text.match(/(?:\d+\.\s+|\*\*)\*{0,2}(.*?)(?:\*\*|:|\n|$)/gi) || [];
+    return fallbackMatches
+      .map(m => m.replace(/^(?:\d+\.\s+|\*\*)\*{0,2}/, '').replace(/\*+$/, '').trim())
+      .filter(t => t.length > 2 && t.length < 100 && !/intent|potential|score|keyword/i.test(t))
       .slice(0, 10);
   }
 
@@ -314,6 +321,37 @@ export function useSEOWorkflow() {
     } catch { return []; }
   }
 
+  // Helper to extract the actual topic string from Step 3 output
+  function resolveTopicChoice(choice, step3Text) {
+    let resolved = choice;
+    // Handle number choice (e.g., "3") or "Topic 3"
+    if (/^\s*([Tt]opic\s*)?\d+\s*$/i.test(choice) && step3Text) {
+      const num = choice.match(/\d+/)[0];
+      const lines = step3Text.split('\n');
+      let foundLine = "";
+      for (const line of lines) {
+         // Match common numbering patterns: "3.", "3)", "3. **Title**", "**3.**"
+         const numPattern = new RegExp(`^\\s*\\**${num}[\\.\\):]`, 'i');
+         if (numPattern.test(line) && line.length > 5) {
+            foundLine = line;
+            break;
+         }
+      }
+      if (foundLine) {
+        resolved = foundLine
+          .replace(/^\s*\**\d+[\.\):]?\**\s*/, '') // Remove numbers like "3.", "3)", "3:"
+          .replace(/###/g, '') // Remove H3 markers from the new format
+          .replace(/\[Number\]/g, '') // Scrub placeholder text just in case
+          .replace(/\*\*SEO Title(?:[:\-—])?\**\s*/i, '') // Remove legacy labels
+          .replace(/\*\*/g, '') // Remove bolding
+          .split(/[-—:]/)[0] // Take only the title before any separators
+          .trim();
+        if (resolved.length < 5) resolved = choice;
+      }
+    }
+    return resolved;
+  }
+
   // ── Steps 1 → 2 → 3 ─────────────────────────────────────────
   async function runWorkflow(rawUrl, context = {}) {
     console.log(`[Workflow Start] URL: ${rawUrl} | Context:`, context);
@@ -321,7 +359,19 @@ export function useSEOWorkflow() {
     stepInputsRef.current[1] = { url: targetUrl, ...context };
     patchStep(1, { status: "loading" });
     try {
-      const d1 = await callSEO(PROMPT_STEP1(targetUrl, context));
+      const scrapeData = await fetch("/api/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: targetUrl })
+      }).then(r => r.json()).catch(() => null);
+
+      const scrapeContext = scrapeData && !scrapeData.error 
+         ? `Title: ${scrapeData.title}\nDesc: ${scrapeData.description}\nCanonical: ${scrapeData.canonical}\nRobots: ${scrapeData.robots}\n\nH1: ${scrapeData.h1}\nH2s: ${scrapeData.h2s}\nH3s: ${scrapeData.h3s}\n\nCore Content Sample: ${scrapeData.mainText}`
+         : "";
+      
+      stepInputsRef.current[1].scrapeContext = scrapeContext;
+
+      const d1 = await callSEO(PROMPT_STEP1(targetUrl, context, scrapeContext));
       patchStep(1, { status: "done", text: d1.text, canRetry: false });
     } catch (e) {
       patchStep(1, { status: "error", error: e.message, canRetry: true });
@@ -374,19 +424,25 @@ export function useSEOWorkflow() {
 
   // ── Step 4 ───────────────────────────────────────────────────
   async function runStep4(topicChoice) {
-    stepInputsRef.current[4] = { topic: topicChoice };
+    const resolvedTopic = resolveTopicChoice(topicChoice, stepData[3]?.text);
+    stepInputsRef.current[4] = { topic: resolvedTopic, originalChoice: topicChoice };
     patchStep(3, { gate: null, status: "done" });
     patchStep(4, { status: "loading" });
     try {
-      // Run SERP Analysis and Keyword Research SEO Call in parallel
-      const [d4, serpRes] = await Promise.all([
-        callSEO(PROMPT_STEP4(topicChoice)),
-        fetch("/api/serp", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ query: topicChoice }),
-        }).then(res => res.json()).catch(() => null)
-      ]);
+      // Fetch SERP Data exactly for the topic to ground the keyword research
+      const serpRes = await fetch("/api/serp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: resolvedTopic }),
+      }).then(res => res.json()).catch(() => null);
+
+      const serpDataStr = serpRes && !serpRes.error ? JSON.stringify(serpRes.organic || serpRes.results || serpRes) : "";
+      
+      // Save it so retryStep has it
+      stepInputsRef.current[4].serpDataStr = serpDataStr;
+
+      // Call AI with real-time SERP context for highly accurate targeting
+      const d4 = await callSEO(PROMPT_STEP4(resolvedTopic, serpDataStr));
 
       const keywords = extractKeywords(d4.text);
       if (keywords.length > 0) {
@@ -446,10 +502,21 @@ export function useSEOWorkflow() {
       outlineAnswer.toLowerCase() !== "approve" && outlineAnswer.toLowerCase() !== "yes"
         ? `\n\nNote: Outline changes requested: "${outlineAnswer}". Please incorporate.`
         : "";
-    stepInputsRef.current[6] = { topic: topicChoice, outNote };
+    const resolvedTopic = resolveTopicChoice(topicChoice, stepData[3]?.text);
+    stepInputsRef.current[6] = { topic: resolvedTopic, outNote };
     patchStep(6, { status: "loading" });
     try {
-      const d6 = await callSEO(PROMPT_STEP6(topicChoice, outNote), 6000);
+      // RAG Feature: Enhance final generation with live factual data
+      const ragRes = await fetch("/api/serp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: resolvedTopic }),
+      }).then(res => res.json()).catch(() => null);
+      
+      const ragContext = ragRes && !ragRes.error ? JSON.stringify(ragRes.organic?.slice(0, 4) || "") : "";
+      stepInputsRef.current[6].ragContext = ragContext;
+
+      const d6 = await callSEO(PROMPT_STEP6(resolvedTopic, outNote, ragContext), 6000);
       patchStep(6, { status: "done", text: d6.text, canRetry: false });
 
       // Quality check
