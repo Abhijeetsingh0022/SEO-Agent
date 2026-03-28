@@ -1,7 +1,5 @@
 # SEO Blog Agent
 
-[ [ [
-
 An advanced, AI-powered internal SEO strategist and blog writing agent built with **Next.js**. Paste any website URL and the agent autonomously researches, strategizes, and writes a fully SEO-optimized blog post — without a single paid API for search data.
 
 > **Key Metrics at a Glance**
