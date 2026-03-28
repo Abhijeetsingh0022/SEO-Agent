@@ -135,5 +135,3 @@ seo-agent/
 MIT © [Abhijeet Singh](https://github.com/Abhijeetsingh0022)
 
 ***
-
-Would you like me to also add a **demo GIF/screenshot section**, a **contributing guide**, or adjust the tone to be more developer-focused vs. marketer-friendly?
